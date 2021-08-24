@@ -1,4 +1,4 @@
-# Grader for Python course
+# Grading system for Python course
 
 This is a system for assigning and automatic grading of Jupyter notebooks.
 Communication between students and the grading system is implemented via email.
