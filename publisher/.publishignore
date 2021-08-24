@@ -1,0 +1,4 @@
+# Files to ignore when publishing
+
+### Jupyter checkpoints
+.ipynb_checkpoints

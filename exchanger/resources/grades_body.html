@@ -1,0 +1,91 @@
+<!-- Text -->
+<p style="font-family: sans-serif; -webkit-font-smoothing: antialiased;
+   font-size: 14px; line-height: 24px; color: #615B74;
+   -ms-text-size-adjust: 100%; -webkit-text-size-adjust: 100%; padding: 0;
+   margin: 14px 0px;">Hello, {first_name}</p>
+
+<p style="font-family: sans-serif; -webkit-font-smoothing: antialiased;
+   font-size: 14px; line-height: 24px; color: #615B74;
+   -ms-text-size-adjust: 100%; -webkit-text-size-adjust: 100%;
+   padding: 0; margin: 14px 0px;">
+    Our robots received your work on the topic
+    <span style="background-color: #ffffff;
+         color: #402249; font-weight: bold;">«{lesson_name}»</span>
+    and carefully checked it. Below is the report of the results.
+</p>
+
+<!-- Report -->
+<table bgcolor="#f6f6f6" border="0" cellpadding="0" cellspacing="0"
+       class="report-table" role="presentation" style="font-family: sans-serif;
+       -webkit-font-smoothing: antialiased; -ms-text-size-adjust: 100%;
+       -webkit-text-size-adjust: 100%; margin-top: 20px; text-align: left;
+       font-size: 14px; line-height: 40px; color: #615B74; width: 100%;
+       background-color: #f6f6f6; padding: 16px 24px; border-radius: 8px;"
+       width="100%">
+    <tr>
+        <td class="report-table-header" style="font-weight: bold;
+            color: #402249;">Task
+        </td>
+        <td class="report-table-header" style="font-weight: bold;
+            color: #402249;">Score
+        </td>
+        <td class="report-table-header" style="font-weight: bold;
+            color: #402249;"></td>
+    </tr>
+    {grades_info}
+    <tr>
+        <th class="report-table-footer" style="font-weight: bold;
+            color: #402249;">Total
+        </th>
+        <th class="report-table-footer" style="font-weight: bold;
+            color: #402249;">{sum_score}
+        </th>
+        <td class="report-table-header" style="font-weight: bold;
+            color: #402249;"></td>
+    </tr>
+</table>
+
+<!-- Feedback -->
+<table border="0" cellpadding="0" cellspacing="0" class="feedback-table"
+       role="presentation" style="font-family: sans-serif;
+       -webkit-font-smoothing: antialiased; font-size: 14px;
+       -ms-text-size-adjust: 100%; -webkit-text-size-adjust: 100%;
+       width: 100%; padding-top: 6px;" width="100%">
+    <tbody>
+    <tr>
+        <td align="left" bgcolor="#EEE4FE"
+            class="feedback-speech" style="
+            border-radius: 0; background-color: #FFFFFF; color: #615B74;
+            text-align: left; vertical-align: top; padding: 0 0;" valign="top">
+
+            <!-- Speech -->
+            <table border="0" cellpadding="0" cellspacing="0"
+                   role="presentation" style="font-family: sans-serif;
+                   -webkit-font-smoothing: antialiased; font-size: 14px;
+                   -ms-text-size-adjust: 100%; -webkit-text-size-adjust: 100%;"
+                   width="100%">
+                <tbody>
+                <tr>
+                    <td valign="top">
+                        <p class="feedback-text" style="font-family: sans-serif;
+                           -webkit-font-smoothing: antialiased; color: #615B74;
+                           -ms-text-size-adjust: 100%; -webkit-text-size-adjust: 100%; padding: 0;
+                           font-size: 14px; line-height: 24px; margin: 16px 0 16px 0;">
+                            {team_speech}</p>
+                    </td>
+                    <td align="right" valign="bottom" width="32%">
+                        <img alt="Speech image" class="speech_image"
+                             height="140"
+                             src="{image_link}" style="border: none;
+                        -ms-interpolation-mode: bicubic; display: block; width: 140px;
+                        height: 140px; margin-left: 8px; padding-bottom: 16px;"
+                             width="140">
+                    </td>
+                </tr>
+                </tbody>
+            </table>
+        </td>
+    </tr>
+    </tbody>
+</table>
+
