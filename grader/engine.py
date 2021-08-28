@@ -171,6 +171,9 @@ class Grader:
         logs = re.sub(r'\[\w+\] ', '', status['log']).replace('\n', '. ')
         if not status['success']:
             logger.error(f'Grader output: {logs}')
+            path_ = os.path.join(ROOT_PATH, 'submitted', user_id, lesson_name)
+            shutil.rmtree(path_)
+            logger.debug(f'Submitted directory "{path_}" was cleared.')
             raise SystemError(f'Autograding of user "{user_id}" '
                               f'for lesson "{lesson_name}" failed.')
         logger.debug(f'Grader output: {logs}')
