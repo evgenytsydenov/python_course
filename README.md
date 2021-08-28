@@ -48,8 +48,8 @@ after grading. This implementation uses email communication via Gmail API.
 To set it up:
 
 1. Create a project [on the Google Cloud](https://cloud.google.com/).
-2. Enable Gmail API, create an OAuth client account, and download its keys in
-   json format.
+2. Enable Gmail API, create an OAuth client account for desktop applications,
+   and download its keys in json format.
    See [Gmail API docs](https://developers.google.com/gmail/api/quickstart/python)
    for details.
 3. Insert the keys as a json string in the `.env` file under `GMAIL_CREDS`

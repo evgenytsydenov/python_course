@@ -28,6 +28,7 @@ from googleapiclient.discovery import build
 from requests.exceptions import ConnectionError
 
 from definitions import DATE_FORMAT
+from definitions import ROOT_PATH
 from utils.app_logger import get_logger
 from utils.data_models import Feedback
 from utils.data_models import Submission
@@ -118,7 +119,8 @@ class GmailExchanger:
         self._send_email = send_email
         self._send_name = send_name
         self._path_downloaded = path_downloaded
-        self._path_pickle = os.path.join('credentials', 'gmail.pickle')
+        self._path_pickle = os.path.join(
+            ROOT_PATH, 'credentials', 'gmail.pickle')
         self._scopes = ['https://www.googleapis.com/auth/gmail.modify',
                         'https://www.googleapis.com/auth/gmail.settings.basic']
         self._gmail = None
@@ -147,7 +149,7 @@ class GmailExchanger:
             else:
                 flow = InstalledAppFlow.from_client_config(
                     self._creds, self._scopes)
-                creds = flow.run_local_server()
+                creds = flow.run_local_server(open_browser=False)
 
             # Save the credentials for the next run
             with open(self._path_pickle, 'wb') as token:
