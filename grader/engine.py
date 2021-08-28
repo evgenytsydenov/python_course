@@ -2,6 +2,7 @@ import json
 import os
 import re
 import shutil
+from collections import Counter
 from datetime import datetime
 from json import JSONDecodeError
 from typing import List
@@ -225,16 +226,17 @@ class Grader:
         :param lesson_name: name of lesson.
         :return: True if notebook is valid, False otherwise.
         """
-        nb_cells = set()
+        nb_cells = []
         try:
             # Get all cells
             with open(path, 'r', encoding='utf-8') as file:
-                all_cells = json.load(file).get('cells', {})
+                all_cells = json.load(file).get('cells', [])
 
             # Get only nbgrader cells
             for cell in all_cells:
                 if 'nbgrader' in cell['metadata'].keys():
-                    nb_cells.add(cell['metadata']['nbgrader'].get('grade_id'))
+                    nb_cells.append(
+                        cell['metadata']['nbgrader'].get('grade_id'))
         except (JSONDecodeError, UnicodeDecodeError):
             logger.debug(f'File "{path}" does not have a json structure.')
             return False
@@ -243,8 +245,8 @@ class Grader:
         with self._nb_grader.gradebook as gb:
             origin_cells = gb.find_notebook(lesson_name, lesson_name) \
                 .source_cells
-        true_cells = {cell.name for cell in origin_cells}
-        return nb_cells == true_cells
+        true_cells = [cell.name for cell in origin_cells]
+        return Counter(nb_cells) == Counter(true_cells)
 
     def _is_submission_newer(self, submitted_path: str,
                              timestamp: datetime) -> bool:
