@@ -7,6 +7,8 @@ from datetime import datetime
 from json import JSONDecodeError
 from typing import List
 
+import alembic.command
+import alembic.config
 from dateutil import parser
 from nbgrader.apps import NbGraderAPI
 from traitlets.config import Config
@@ -32,8 +34,9 @@ class Grader:
 
         :param grader_config: grader configuration.
         """
-        self._db = DatabaseHandler(grader_config.CourseDirectory.db_url)
-        self._nb_grader = NbGraderAPI(config=grader_config)
+        self._config = grader_config
+        self._db = DatabaseHandler(self._config.CourseDirectory.db_url)
+        self._nb_grader = NbGraderAPI(config=self._config)
         self._check_schema()
         logger.info('Grader started successfully.')
 
@@ -317,8 +320,16 @@ class Grader:
 
     def _check_schema(self) -> None:
         """Check if all the necessary tables exist."""
+
+        # Standard nbgrader schema
         with self._nb_grader.gradebook as gb:
-            course_id = self._nb_grader.config.CourseDirectory.course_id
+            course_id = self._config.CourseDirectory.course_id
             gb.check_course(course_id)
             logger.debug('Standard nbgrader schema was checked.')
+
+        # Customizations
+        alembic_cfg = alembic.config.Config()
+        alembic_cfg.set_main_option(
+            'script_location', os.path.join(ROOT_PATH, 'alembic'))
+        alembic.command.upgrade(alembic_cfg, 'head')
         self._db.refresh_metadata()
