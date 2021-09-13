@@ -47,7 +47,7 @@ def sync_html_sources(gdrive_publisher: GDrivePublisher) -> Dict[str, str]:
     for pic in os.listdir(pic_path):
         image_name = os.path.splitext(pic)[0]
         link = gdrive_publisher.sync(os.path.join(pic_path, pic),
-                                     'html_sources', 'thumbnailLink')
+                                     'html_sources', 'const_thumbnail')
         links[image_name] = link
     logger.info('Local html sources were synchronized with the cloud ones.')
     return links

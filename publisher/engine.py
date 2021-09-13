@@ -111,8 +111,14 @@ class GDrivePublisher:
                      f'synchronized with the cloud file "{cloud_name}".')
 
         # Share
-        file_params = self._get_cloud_file(
-            cloud_file_id, ['permissions', link_type, 'name'])
+        if link_type == 'const_thumbnail':
+            file_params = self._get_cloud_file(
+                cloud_file_id, ['permissions', 'name'])
+            file_params[link_type] = f'http://drive.google.com/' \
+                                     f'thumbnail?id={cloud_file_id}'
+        else:
+            file_params = self._get_cloud_file(
+                cloud_file_id, ['permissions', link_type, 'name'])
         if to_share:
             is_shared = False
             for p in file_params['permissions']:
