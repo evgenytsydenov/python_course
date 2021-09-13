@@ -110,11 +110,9 @@ venv.bak/
 
 ### ProjectFiles
 /logs/
-/release/
 /autograded/
 /submitted/
 /database/
-/source/
 /downloaded/
 /feedback/
 /credentials/
