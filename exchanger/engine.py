@@ -5,6 +5,7 @@ import functools
 import os
 import pickle
 import re
+import requests
 import shutil
 import socket
 import sys
@@ -14,18 +15,16 @@ from datetime import timezone
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.utils import formataddr
-from typing import Any
-from typing import Callable
-from typing import Dict
-from typing import List
-from typing import Optional
-
-import requests
 from google.auth.exceptions import TransportError
 from google.auth.transport.requests import Request
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from requests.exceptions import ConnectionError
+from typing import Any
+from typing import Callable
+from typing import Dict
+from typing import List
+from typing import Optional
 
 from definitions import DATE_FORMAT
 from definitions import ROOT_PATH
@@ -79,7 +78,7 @@ def repeat_request(func: Optional[Callable] = None, *,
         for timeout in [1, 5, 10, 15, 20]:
             try:
                 return func(self, *args, **kwargs)
-            except (ConnectionError, TransportError,
+            except (ConnectionError, TransportError, HttpError,
                     requests.ConnectionError, socket.timeout) as err:
                 error = err
                 exc_type, _, _ = sys.exc_info()
