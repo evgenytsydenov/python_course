@@ -13,15 +13,10 @@ from dateutil import parser
 from nbgrader.apps import NbGraderAPI
 from traitlets.config import Config
 
-from definitions import DATE_FORMAT
-from definitions import ROOT_PATH
-from definitions import TASK_NAME_PATTERN
+from definitions import DATE_FORMAT, ROOT_PATH, TASK_NAME_PATTERN
 from grader.database import DatabaseHandler
 from utils.app_logger import get_logger
-from utils.data_models import GradeResult
-from utils.data_models import GradeStatus
-from utils.data_models import Submission
-from utils.data_models import Task
+from utils.data_models import GradeResult, GradeStatus, Submission, Task
 
 logger = get_logger(__name__)
 
@@ -119,7 +114,10 @@ class Grader:
         # Test the submission
         self._move_checked_files(submission.filepath, submitted_path,
                                  submission.timestamp)
-        grades = self._autograde(lesson_, user_)
+        if not self._autograde(lesson_, user_):
+            grade_result.status = GradeStatus.ERROR_GRADER_FAILED
+            return grade_result
+        grades = self._get_submission_grades(lesson_, user_)
         grade_result.task_grades = grades
 
         # Generate standard feedback
@@ -160,44 +158,32 @@ class Grader:
         logger.debug(f'Downloaded files were removed '
                      f'from "{downloaded_path}".')
 
-    def _autograde(self, lesson_name: str, user_id: str) -> List[Task]:
+    def _autograde(self, lesson_name: str, user_id: str) -> bool:
         """Run autograding process.
 
         :param lesson_name: name of the lesson.
         :param user_id: user id.
-        :return: grades per each task.
+        :return: if the autograding was successful.
         """
-        # Autograde
         logger.debug(f'Start autograding of user "{user_id}" '
                      f'for lesson "{lesson_name}.')
         status = self._nb_grader.autograde(lesson_name, user_id, create=False)
         logs = re.sub(r'\[\w+\] ', '', status['log']).replace('\n', '. ')
-        if not status['success']:
-            logger.error(f'Grader output: {logs}')
-            path_ = os.path.join(ROOT_PATH, 'submitted', user_id, lesson_name)
-            shutil.rmtree(path_)
-            logger.debug(f'Submitted directory "{path_}" was cleared.')
-            raise SystemError(f'Autograding of user "{user_id}" '
-                              f'for lesson "{lesson_name}" failed.')
         logger.debug(f'Grader output: {logs}')
-
-        # Get grades
-        grades = {}
-        with self._nb_grader.gradebook as gb:
-            assignment = gb.find_submission(lesson_name, user_id)
-            submission = assignment.notebooks[0]
-            for grade in submission.grades:
-                grades[grade.name] = (grade.score, grade.max_score)
-        logger.debug(f'Grades of user "{user_id}" for lesson "{lesson_name}" '
-                     f'were extracted.')
-
-        # Get tasks description
-        tasks = self._get_lesson_tasks(lesson_name)
-        for task in tasks:
-            task.score, task.max_score = grades[task.test_cell]
+        if not status['success']:
+            logger.error(f'Traceback: {status.get("error")}')
+            with self._nb_grader.gradebook as gb:
+                gb.remove_submission(lesson_name, user_id)
+                logger.debug(f'Submission of user "{user_id}" for lesson '
+                             f'"{lesson_name}" was removed from the database.')
+            path_ = os.path.join(ROOT_PATH, 'submitted', user_id, lesson_name)
+            if os.path.exists(path_):
+                shutil.rmtree(path_)
+                logger.debug(f'Submitted directory "{path_}" was cleared.')
+            return False
         logger.info(f'Submission of user "{user_id}" for '
                     f'lesson "{lesson_name}" was autograded.')
-        return tasks
+        return True
 
     def _create_nbgrader_feedback(self, lesson_name: str,
                                   user_id: str) -> bytes:
@@ -276,6 +262,30 @@ class Grader:
             logger.debug(f'The previous submission was made "{time_old}".')
         time_old = parser.parse(time_old)
         return timestamp > time_old
+
+    def _get_submission_grades(self, lesson_name: str,
+                               user_id: str) -> List[Task]:
+        """Get grades for autograded submission.
+
+        :param lesson_name: name of the lesson.
+        :param user_id: user id.
+        :return: grades per each task.
+        """
+        # Get grades
+        grades = {}
+        with self._nb_grader.gradebook as gb:
+            assignment = gb.find_submission(lesson_name, user_id)
+            submission = assignment.notebooks[0]
+            for grade in submission.grades:
+                grades[grade.name] = (grade.score, grade.max_score)
+
+        # Get tasks description
+        tasks = self._get_lesson_tasks(lesson_name)
+        for task in tasks:
+            task.score, task.max_score = grades[task.test_cell]
+        logger.debug(f'Grades of user "{user_id}" for lesson "{lesson_name}" '
+                     f'were extracted.')
+        return tasks
 
     def _get_lesson_tasks(self, lesson_name: str) -> List[Task]:
         """Get task description for each test cell.

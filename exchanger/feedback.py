@@ -1,14 +1,9 @@
 import os
-from typing import Dict
-from typing import List
+from typing import Dict, List
 
-from definitions import DATE_FORMAT
-from definitions import ROOT_PATH
+from definitions import DATE_FORMAT, ROOT_PATH
 from utils.app_logger import get_logger
-from utils.data_models import Feedback
-from utils.data_models import GradeResult
-from utils.data_models import GradeStatus
-from utils.data_models import Task
+from utils.data_models import Feedback, GradeResult, GradeStatus, Task
 
 logger = get_logger(__name__)
 
@@ -51,6 +46,9 @@ class FeedbackCreator:
 
         elif grade_result.status is GradeStatus.ERROR_USERNAME_IS_ABSENT:
             body, subject = self._get_absent_username_feedback()
+
+        elif grade_result.status is GradeStatus.ERROR_GRADER_FAILED:
+            body, subject = self._get_grader_failed_feedback()
 
         elif grade_result.status is GradeStatus.SUCCESS:
             body, subject = self._get_success_feedback(grade_result)
@@ -121,6 +119,23 @@ class FeedbackCreator:
         body = self._error_body.format(err_text=err_text,
                                        teacher_email=self._teacher_email,
                                        image_link=self._pics['unknown_user'])
+        return body, subject
+
+    def _get_grader_failed_feedback(self) -> (str, str):
+        """Create feedback when the grader failed during submission testing.
+
+        :return: body and subject of the message.
+        """
+        err_text = """
+                   We received your work, but the grading process ended 
+                   with an error. Probably your code consumes too much RAM, 
+                   has infinite loops, or contains very deep recursions.
+                   Check it and send again :)
+                   """
+        subject = f'{self._course_name} / Grader failed'
+        body = self._error_body.format(err_text=err_text,
+                                       teacher_email=self._teacher_email,
+                                       image_link=self._pics['grader_failed'])
         return body, subject
 
     def _get_incorrect_lesson_feedback(self) -> (str, str):

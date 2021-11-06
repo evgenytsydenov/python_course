@@ -1,9 +1,7 @@
 import datetime
-from dataclasses import dataclass
-from dataclasses import field
+from dataclasses import dataclass, field
 from enum import Enum
-from typing import List
-from typing import Optional
+from typing import List, Optional
 
 from definitions import DATE_FORMAT
 
@@ -84,7 +82,8 @@ class GradeStatus(Enum):
     ERROR_NO_CORRECT_FILES = 2
     ERROR_LESSON_IS_ABSENT = 3
     ERROR_NOTEBOOK_CORRUPTED = 4
-    SKIPPED = 5
+    ERROR_GRADER_FAILED = 5
+    SKIPPED = 6
 
 
 @dataclass
