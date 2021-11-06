@@ -6,6 +6,8 @@ from dotenv import load_dotenv
 from nbgrader.apps import NbGraderAPI
 from traitlets.config import Config
 
+# noinspection PyUnresolvedReferences
+import shared
 from definitions import ROOT_PATH
 from nbgrader_config import config
 from utils import app_logger

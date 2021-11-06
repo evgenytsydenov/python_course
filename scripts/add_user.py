@@ -2,11 +2,12 @@ import re
 import uuid
 from typing import Optional
 
-from email_validator import EmailNotValidError
-from email_validator import validate_email
+from email_validator import EmailNotValidError, validate_email
 from nbgrader.apps import NbGraderAPI
 from traitlets.config import Config
 
+# noinspection PyUnresolvedReferences
+import shared
 from nbgrader_config import config
 from utils import app_logger
 
