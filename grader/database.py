@@ -68,10 +68,10 @@ class DatabaseHandler:
             les_tab = self._meta.tables['assignment']
             q_filter = func.lower(les_tab.c.name) == lesson_name.lower()
             lesson_sql = select(['*']).where(q_filter)
-            result = connection.execute(lesson_sql).first()
-            les_info = {}
-            if result:
+            if result := connection.execute(lesson_sql).first():
                 les_info = dict(result)
+            else:
+                les_info = {}
             logger.debug(f'The following information about lesson with '
                          f'name "{lesson_name}" was loaded: {les_info}.')
             return les_info
@@ -87,10 +87,10 @@ class DatabaseHandler:
             users_table = self._meta.tables['student']
             q_filter = func.lower(users_table.c.email) == email.lower()
             user_sql = select(['*']).where(q_filter)
-            result = connection.execute(user_sql).first()
-            user_info = {}
-            if result:
+            if result := connection.execute(user_sql).first():
                 user_info = dict(result)
+            else:
+                user_info = {}
             logger.debug(f'The following information about user with '
                          f'email "{email}" was loaded: {user_info}.')
             return user_info

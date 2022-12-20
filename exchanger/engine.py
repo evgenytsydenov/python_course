@@ -247,9 +247,8 @@ class GmailExchanger:
         """
         headers = msg['payload']['headers']
         sender = next(x for x in headers if x['name'] == 'From')['value']
-        match = re.search('.*<(?P<email>.*)>.*', sender)
-        if match:
-            sender = match.group('email')
+        if match := re.search('.*<(?P<email>.*)>.*', sender):
+            sender = match['email']
         logger.debug(f'Sender email "{sender}" was extracted '
                      f'from the message with id "{msg["id"]}".')
         return sender
@@ -265,10 +264,10 @@ class GmailExchanger:
         """
         headers = msg['payload']['headers']
         subject = next(x for x in headers if x['name'] == 'Subject')['value']
-        match = re.search('^(?P<label>.*)/(?P<lesson>.*)$', subject)
-        les_name = ''
-        if match:
-            les_name = match.group('lesson')
+        if match := re.search('^(?P<label>.*)/(?P<lesson>.*)$', subject):
+            les_name = match['lesson']
+        else:
+            les_name = ''
         logger.debug(f'Lesson name "{les_name}" extracted '
                      f'from the message with id "{msg["id"]}".')
         return les_name
@@ -381,18 +380,21 @@ class GmailExchanger:
         :return: label id.
         """
         all_labels = self._gmail.users().labels().list(userId='me').execute()
-        label_info = {}
-        for label in all_labels['labels']:
-            if label['name'] == label_name:
-                label_info = label
-                break
+        label_info = next(
+            (
+                label
+                for label in all_labels['labels']
+                if label['name'] == label_name
+            ),
+            {},
+        )
         if label_info:
             logger.debug(f'Gmail label "{label_info}" already exists.')
         else:
             body = {'name': label_name, 'messageListVisibility': 'show',
                     'labelListVisibility': 'labelShow'}
             label_info = self._gmail.users().labels() \
-                .create(userId='me', body=body).execute()
+                    .create(userId='me', body=body).execute()
             logger.debug(f'New label "{label_info}" was created.')
         return label_info['id']
 
@@ -408,23 +410,24 @@ class GmailExchanger:
         """
         # List all filters
         filters = self._gmail.users().settings().filters() \
-            .list(userId='me').execute()
+                .list(userId='me').execute()
 
         # Find if already exist
         criteria = {'to': fetch_alias, 'subject': fetch_keyword}
         action = {'addLabelIds': [label_id],
                   'removeLabelIds': ['INBOX', 'SPAM']}
-        filter_info = {}
-        for gmail_filter in filters['filter']:
-            if (gmail_filter['criteria'] == criteria) \
-                    and (gmail_filter['action'] == action):
-                filter_info = gmail_filter
-                break
-
-        if filter_info:
+        if filter_info := next(
+            (
+                gmail_filter
+                for gmail_filter in filters['filter']
+                if (gmail_filter['criteria'] == criteria)
+                and (gmail_filter['action'] == action)
+            ),
+            {},
+        ):
             logger.debug(f'Filter {filter_info} already exists.')
         else:
             body = {'criteria': criteria, 'action': action}
             self._gmail.users().settings().filters() \
-                .create(userId='me', body=body).execute()
+                    .create(userId='me', body=body).execute()
             logger.debug(f'Filter {filter_info} has been created.')
