@@ -33,9 +33,7 @@ class CustomFormatter(logging.Formatter):
         :return: time in string format.
         """
         dt = self.converter(record.created)
-        if datefmt:
-            return dt.strftime(datefmt)
-        return dt.isoformat()
+        return dt.strftime(datefmt) if datefmt else dt.isoformat()
 
 
 def _get_file_handler(path: str) -> logging.FileHandler:

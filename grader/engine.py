@@ -225,10 +225,11 @@ class Grader:
                 all_cells = json.load(file).get('cells', [])
 
             # Get only nbgrader cells
-            for cell in all_cells:
-                if 'nbgrader' in cell['metadata'].keys():
-                    nb_cells.append(
-                        cell['metadata']['nbgrader'].get('grade_id'))
+            nb_cells.extend(
+                cell['metadata']['nbgrader'].get('grade_id')
+                for cell in all_cells
+                if 'nbgrader' in cell['metadata'].keys()
+            )
         except (JSONDecodeError, UnicodeDecodeError):
             logger.debug(f'File "{path}" does not have a json structure.')
             return False
@@ -236,7 +237,7 @@ class Grader:
         # Get valid cells
         with self._nb_grader.gradebook as gb:
             origin_cells = gb.find_notebook(lesson_name, lesson_name) \
-                .source_cells
+                    .source_cells
         true_cells = [cell.name for cell in origin_cells]
         return Counter(nb_cells) == Counter(true_cells)
 
@@ -306,20 +307,17 @@ class Grader:
         tasks = []
         task = None
         for cell in notebook['cells']:
-            nb_data = cell['metadata'].get('nbgrader')
-            if nb_data:
+            if nb_data := cell['metadata'].get('nbgrader'):
                 # If it is a task name cell
                 if cell['cell_type'] == 'markdown':
-                    is_todo = re.match(pat, cell['source'][0])
-                    if is_todo:
-                        task = Task(name=is_todo.group('name'))
+                    if is_todo := re.match(pat, cell['source'][0]):
+                        task = Task(name=is_todo['name'])
                     continue
 
                 # If it is a test cell
-                if cell['cell_type'] == 'code':
-                    if nb_data['grade']:
-                        task.test_cell = nb_data['grade_id']
-                        tasks.append(task)
+                if cell['cell_type'] == 'code' and nb_data['grade']:
+                    task.test_cell = nb_data['grade_id']
+                    tasks.append(task)
         logger.debug(f'Task names were extracted for lesson "{lesson_name}".')
         return tasks
 

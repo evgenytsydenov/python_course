@@ -75,9 +75,9 @@ class FeedbackCreator:
         """
         timestamp = grade_result.timestamp.strftime(DATE_FORMAT)
         subject = f'{self._course_name} / {grade_result.lesson_name} ' \
-                  f'/ {timestamp}'
-        score = sum([task.score for task in grade_result.task_grades])
-        max_score = sum([task.max_score for task in grade_result.task_grades])
+                      f'/ {timestamp}'
+        score = sum(task.score for task in grade_result.task_grades)
+        max_score = sum(task.max_score for task in grade_result.task_grades)
         body = self._grades_body.format(
             first_name=grade_result.first_name,
             lesson_name=grade_result.lesson_name,

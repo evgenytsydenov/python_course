@@ -40,13 +40,13 @@ class GDrivePublisher:
 
         # Get id of cloud folder
         query = f"mimeType = 'application/vnd.google-apps.folder' " \
-                f"and name = '{self.cloud_root_name}' " \
-                f"and trashed != True"
-        cloud_file_id = self._find_cloud_files(query, attributes=['id'])
-        if not cloud_file_id:
+                    f"and name = '{self.cloud_root_name}' " \
+                    f"and trashed != True"
+        if cloud_file_id := self._find_cloud_files(query, attributes=['id']):
+            self._cloud_root_id = cloud_file_id[0]['id']
+        else:
             raise ValueError('The root cloud folder for publishing must be '
                              'pre created.')
-        self._cloud_root_id = cloud_file_id[0]['id']
 
     def _create_cloud_path(self, cloud_path: str) -> str:
         """Create all intermediate folders on the way to the cloud path.
@@ -60,12 +60,13 @@ class GDrivePublisher:
             return parent_id
         for name in cloud_path.split(os.sep):
             query = f"name = '{name}' and '{parent_id}' in parents " \
-                    f"and trashed != True"
+                        f"and trashed != True"
             folder = self._find_cloud_files(query, ['id'])
-            if not folder:
-                parent_id = self._create_cloud_folder(name, parent_id)
-            else:
-                parent_id = folder[0]['id']
+            parent_id = (
+                folder[0]['id']
+                if folder
+                else self._create_cloud_folder(name, parent_id)
+            )
         return parent_id
 
     def sync(self, local_file: str, cloud_folder_path: str = '.',
@@ -96,17 +97,16 @@ class GDrivePublisher:
 
         # Find the file and sync it
         query = f"name = '{local_name}' and '{parent_id}' in parents " \
-                f"and trashed != True"
-        cloud_file = self._find_cloud_files(query, ['id'])
-        if not cloud_file:
-            logger.debug(f'File or folder "{local_name}" does not exist '
-                         f'in the cloud path "{cloud_folder_path}".')
-            cloud_file_id = self._upload_file(local_file, parent_id)
-        else:
+                    f"and trashed != True"
+        if cloud_file := self._find_cloud_files(query, ['id']):
             cloud_file_id = cloud_file[0]['id']
             logger.debug(f'File or folder "{local_name}" exists '
                          f'in the cloud path "{cloud_folder_path}".')
             self._update_cloud_file(cloud_file_id, local_file)
+        else:
+            logger.debug(f'File or folder "{local_name}" does not exist '
+                         f'in the cloud path "{cloud_folder_path}".')
+            cloud_file_id = self._upload_file(local_file, parent_id)
         logger.debug(f'Content of the local object "{local_file}" was '
                      f'synchronized with the cloud file "{cloud_name}".')
 
@@ -115,15 +115,15 @@ class GDrivePublisher:
             file_params = self._get_cloud_file(
                 cloud_file_id, ['permissions', 'name'])
             file_params[link_type] = f'http://drive.google.com/' \
-                                     f'thumbnail?id={cloud_file_id}'
+                                         f'thumbnail?id={cloud_file_id}'
         else:
             file_params = self._get_cloud_file(
                 cloud_file_id, ['permissions', link_type, 'name'])
         if to_share:
-            is_shared = False
-            for p in file_params['permissions']:
-                if (p['id'] == 'anyoneWithLink') and (p['role'] == 'reader'):
-                    is_shared = True
+            is_shared = any(
+                (p['id'] == 'anyoneWithLink') and (p['role'] == 'reader')
+                for p in file_params['permissions']
+            )
             if is_shared:
                 logger.debug(f'File or folder "{file_params["name"]}" with '
                              f'id "{cloud_file_id}" is already shared.')
@@ -297,8 +297,7 @@ class GDrivePublisher:
             results['files'] += next_page['files']
         return results['files']
 
-    def _get_cloud_file(self, file_id: str, attributes: Iterable[str]) \
-            -> Dict[str, Any]:
+    def _get_cloud_file(self, file_id: str, attributes: Iterable[str]) -> Dict[str, Any]:
         """Get attributes of cloud file.
 
         :param file_id: if of file.
@@ -306,9 +305,7 @@ class GDrivePublisher:
         :return: dict with attributes.
         """
         fields = f'{", ".join(attributes)}'
-        results = self._gdrive.files().get(
-            fileId=file_id, fields=fields).execute()
-        return results
+        return self._gdrive.files().get(fileId=file_id, fields=fields).execute()
 
     def _get_ignore_files(self) -> List[str]:
         """Get file patterns to ignore when publishing.
@@ -318,8 +315,8 @@ class GDrivePublisher:
         patterns = []
         path = os.path.join(os.path.dirname(__file__), '.publishignore')
         with open(path, 'r') as file:
-            for line in file.readlines():
-                if line.strip() and not line.startswith('#'):
-                    patterns.append(line)
+            patterns.extend(
+                line for line in file if line.strip() and not line.startswith('#')
+            )
         logger.debug('Publish ignore files were loaded.')
         return patterns

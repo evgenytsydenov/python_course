@@ -58,8 +58,9 @@ class SMTPSender:
                     file_attachment.set_payload(file_obj.read())
                     encoders.encode_base64(file_attachment)
                     file_attachment.add_header(
-                        f'Content-Disposition',
-                        f'attachment; filename="{file_name}"')
+                        'Content-Disposition',
+                        f'attachment; filename="{file_name}"',
+                    )
                     message.attach(file_attachment)
         text = message.as_string()
 
