@@ -5,7 +5,6 @@ from email import encoders
 from email.mime.base import MIMEBase
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
-from typing import Optional, List
 
 from utils.app_logger import get_logger
 
@@ -15,8 +14,9 @@ logger = get_logger(__name__)
 class SMTPSender:
     """Sender of emails via SMTP."""
 
-    def __init__(self, login: str, password: str, server: str,
-                 server_port: str) -> None:
+    def __init__(
+        self, login: str, password: str, server: str, server_port: str
+    ) -> None:
         """Create email sender.
 
         :param login: mailbox login.
@@ -29,10 +29,14 @@ class SMTPSender:
         self._server = server
         self._server_port = int(server_port)
 
-    def send(self, destination: str, subject: str,
-             plain_text: Optional[str] = None,
-             html_content: Optional[str] = None,
-             files: Optional[List[str]] = None) -> None:
+    def send(
+        self,
+        destination: str,
+        subject: str,
+        plain_text: str | None = None,
+        html_content: str | None = None,
+        files: list[str] | None = None,
+    ) -> None:
         """Send message.
 
         :param files: path to files to attach.
@@ -43,23 +47,23 @@ class SMTPSender:
         """
         # Create message
         message = MIMEMultipart()
-        message['From'] = self._login
-        message['To'] = destination
-        message['Subject'] = subject
+        message["From"] = self._login
+        message["To"] = destination
+        message["Subject"] = subject
         if plain_text:
             message.attach(MIMEText(plain_text))
         if html_content:
-            message.attach(MIMEText(html_content, 'html'))
+            message.attach(MIMEText(html_content, "html"))
         if files:
             for file in files:
-                with open(file, 'rb') as file_obj:
+                with open(file, "rb") as file_obj:
                     file_name = os.path.basename(file)
-                    file_attachment = MIMEBase('application', "octet-stream")
+                    file_attachment = MIMEBase("application", "octet-stream")
                     file_attachment.set_payload(file_obj.read())
                     encoders.encode_base64(file_attachment)
                     file_attachment.add_header(
-                        f'Content-Disposition',
-                        f'attachment; filename="{file_name}"')
+                        "Content-Disposition", f'attachment; filename="{file_name}"'
+                    )
                     message.attach(file_attachment)
         text = message.as_string()
 
@@ -70,11 +74,13 @@ class SMTPSender:
             server.ehlo()
             server.starttls(context=tls_context)
             server.ehlo()
-            logger.debug(f'Connected to SMTP server: '
-                         f'{self._server}:{self._server_port}.')
+            logger.debug(
+                f"Connected to SMTP server: " f"{self._server}:{self._server_port}."
+            )
             server.login(self._login, self._password)
-            logger.debug(f'Authentication with login "{self._login}" was '
-                         f'successful.')
+            logger.debug(
+                f'Authentication with login "{self._login}" was ' f"successful."
+            )
             server.sendmail(self._login, destination, text)
             logger.info(f'Message "{subject}" was sent to "{destination}".')
         finally:

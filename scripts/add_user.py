@@ -1,20 +1,17 @@
 import re
 import uuid
-from typing import Optional
 
 from email_validator import EmailNotValidError, validate_email
 from nbgrader.apps import NbGraderAPI
 from traitlets.config import Config
 
-# noinspection PyUnresolvedReferences
-import shared
 from nbgrader_config import config
 from utils import app_logger
 
-logger = app_logger.get_logger('scripts.add_user')
+logger = app_logger.get_logger("scripts.add_user")
 
 
-def normalize_email(email: str) -> Optional[str]:
+def normalize_email(email: str) -> str | None:
     """Normalize email.
 
     :param email: email to validate.
@@ -33,14 +30,17 @@ def clean_string(text: str) -> str:
     :param text: text to handle.
     :return: cleaned text.
     """
-    pattern = '[^A-Za-z0-9]+'
-    return re.sub(pattern, '', text).lower()
+    pattern = "[^A-Za-z0-9]+"
+    return re.sub(pattern, "", text).lower()
 
 
-def add_user(nbgrader_config: Config, email: str,
-             first_name: Optional[str] = None,
-             last_name: Optional[str] = None,
-             group: Optional[str] = None) -> None:
+def add_user(
+    nbgrader_config: Config,
+    email: str,
+    first_name: str | None = None,
+    last_name: str | None = None,
+    group: str | None = None,
+) -> None:
     """Add new user.
 
     :param nbgrader_config: grader configuration.
@@ -57,24 +57,32 @@ def add_user(nbgrader_config: Config, email: str,
 
         # Check if such email already exists
         email_ = normalize_email(email)
-        assert email_, f'Email "{email}" is incorrect."'
-        assert email_ not in emails, f'User with email "{email_}" ' \
-                                     f'already exists.'
+        if not email_:
+            raise ValueError(f'Email "{email}" is incorrect."')
+        if email_ in emails:
+            raise ValueError(f'User with email "{email_}" ' f"already exists.")
 
         # Create username
         first_name_ = clean_string(first_name)
         last_name_ = clean_string(last_name)
         parts = [n for n in [last_name_, first_name_] if n]
-        username = '_'.join([*parts, uuid.uuid1().hex])[:128]
+        username = "_".join([*parts, uuid.uuid1().hex])[:128]
 
         # Add
-        gb.add_student(student_id=username, first_name=first_name,
-                       email=email_, last_name=last_name,
-                       lms_user_id=group)
+        gb.add_student(
+            student_id=username,
+            first_name=first_name,
+            email=email_,
+            last_name=last_name,
+            lms_user_id=group,
+        )
         logger.info(f'User "{username}" was added.')
 
 
-if __name__ == '__main__':
-    add_user(first_name='Ted', last_name='Mosby',
-             email='tedmosby@architect.com',
-             nbgrader_config=config)
+if __name__ == "__main__":
+    add_user(
+        first_name="Ted",
+        last_name="Mosby",
+        email="tedmosby@architect.com",
+        nbgrader_config=config,
+    )

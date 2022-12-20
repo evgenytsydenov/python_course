@@ -1,0 +1,40 @@
+repos:
+  - repo: https://github.com/python-poetry/poetry
+    rev: 1.3.1
+    hooks:
+      - id: poetry-check
+      - id: poetry-lock
+      - id: poetry-export
+        args: ["-f", "requirements.txt", "-o", "requirements.txt"]
+      - id: poetry-export
+        args: ["-f", "requirements.txt", "-o", "requirements_dev.txt", "--with", "dev"]
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.4.0
+    hooks:
+      - id: check-added-large-files
+      - id: check-ast
+      - id: check-builtin-literals
+      - id: check-case-conflict
+      - id: check-docstring-first
+      - id: check-executables-have-shebangs
+      - id: check-json
+      - id: check-merge-conflict
+      - id: check-toml
+      - id: check-xml
+      - id: check-yaml
+      - id: debug-statements
+      - id: destroyed-symlinks
+      - id: fix-byte-order-marker
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+      - id: name-tests-test
+
+  - repo: https://github.com/psf/black
+    rev: 22.12.0
+    hooks:
+      - id: black
+
+  - repo: https://github.com/charliermarsh/ruff-pre-commit
+    rev: v0.0.186
+    hooks:
+      - id: ruff

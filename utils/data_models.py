@@ -1,7 +1,6 @@
 import datetime
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import List, Optional
 
 from definitions import DATE_FORMAT
 
@@ -9,6 +8,7 @@ from definitions import DATE_FORMAT
 @dataclass
 class Submission:
     """Submission parameters."""
+
     # Submission timestamp
     timestamp: datetime.datetime
 
@@ -20,11 +20,11 @@ class Submission:
 
     # Lesson name
     lesson_name: str
-    _lesson_name: str = field(init=False, repr=False, default='')
+    _lesson_name: str = field(init=False, repr=False, default="")
 
     # User's email
     email: str
-    _email: str = field(init=False, repr=False, default='')
+    _email: str = field(init=False, repr=False, default="")
 
     @property
     def email(self) -> str:
@@ -43,19 +43,22 @@ class Submission:
 
     @lesson_name.setter
     def lesson_name(self, lesson_name: str) -> None:
-        """Clean lesson name"""
+        """Clean lesson name."""
         self._lesson_name = lesson_name.strip()
 
     def __str__(self) -> str:
-        return f'Timestamp: {self.timestamp.strftime(DATE_FORMAT)}, ' \
-               f'Email: {self.email}, ' \
-               f'Lesson name: {self.lesson_name}, ' \
-               f'Submission ID: {self.exchange_id}'
+        return (
+            f"Timestamp: {self.timestamp.strftime(DATE_FORMAT)}, "
+            f"Email: {self.email}, "
+            f"Lesson name: {self.lesson_name}, "
+            f"Submission ID: {self.exchange_id}"
+        )
 
 
 @dataclass
 class Task:
     """Task description."""
+
     # Name of the task from assignment
     name: str
 
@@ -66,17 +69,20 @@ class Task:
     score: float = 0
 
     # Name of test cell
-    test_cell: Optional[str] = None
+    test_cell: str | None = None
 
     def __str__(self) -> str:
-        return f'Task name: {self.name}, ' \
-               f'Current score: {self.score}, ' \
-               f'Max score: {self.max_score}, ' \
-               f'Name of test cell: {self.test_cell}'
+        return (
+            f"Task name: {self.name}, "
+            f"Current score: {self.score}, "
+            f"Max score: {self.max_score}, "
+            f"Name of test cell: {self.test_cell}"
+        )
 
 
 class GradeStatus(Enum):
     """Status of grading process."""
+
     SUCCESS = 0
     ERROR_USERNAME_IS_ABSENT = 1
     ERROR_NO_CORRECT_FILES = 2
@@ -89,6 +95,7 @@ class GradeStatus(Enum):
 @dataclass
 class GradeResult:
     """Grade results parameters."""
+
     # Status of grading process
     status: GradeStatus
 
@@ -97,22 +104,23 @@ class GradeResult:
 
     # User info
     email: str
-    student_id: Optional[str] = None
-    first_name: Optional[str] = None
-    last_name: Optional[str] = None
+    student_id: str | None = None
+    first_name: str | None = None
+    last_name: str | None = None
 
     # Lesson info
-    lesson_name: Optional[str] = None
-    due_date: Optional[datetime.datetime] = None
+    lesson_name: str | None = None
+    due_date: datetime.datetime | None = None
 
     # Grades per each task
-    task_grades: Optional[List[Task]] = None
+    task_grades: list[Task] | None = None
 
 
 @dataclass
 class Feedback:
     """Feedback information."""
+
     email: str
     subject: str
     html_body: str
-    student_name: Optional[str] = None
+    student_name: str | None = None
