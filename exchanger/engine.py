@@ -262,7 +262,7 @@ class GmailExchanger:
         sender = next(x for x in headers if x["name"] == "From")["value"]
         match = re.search(".*<(?P<email>.*)>.*", sender)
         if match:
-            sender = match.group("email")
+            sender = match["email"]
         logger.debug(
             f'Sender email "{sender}" was extracted '
             f'from the message with id "{msg["id"]}".'
@@ -281,9 +281,7 @@ class GmailExchanger:
         headers = msg["payload"]["headers"]
         subject = next(x for x in headers if x["name"] == "Subject")["value"]
         match = re.search("^(?P<label>.*)/(?P<lesson>.*)$", subject)
-        les_name = ""
-        if match:
-            les_name = match.group("lesson")
+        les_name = match["lesson"] if match else ""
         logger.debug(
             f'Lesson name "{les_name}" extracted '
             f'from the message with id "{msg["id"]}".'
@@ -406,11 +404,10 @@ class GmailExchanger:
         :return: label id.
         """
         all_labels = self._gmail.users().labels().list(userId="me").execute()
-        label_info = {}
-        for label in all_labels["labels"]:
-            if label["name"] == label_name:
-                label_info = label
-                break
+        label_info = next(
+            (label for label in all_labels["labels"] if label["name"] == label_name),
+            {},
+        )
         if label_info:
             logger.debug(f'Gmail label "{label_info}" already exists.')
         else:
@@ -442,14 +439,15 @@ class GmailExchanger:
         # Find if already exist
         criteria = {"to": fetch_alias, "subject": fetch_keyword}
         action = {"addLabelIds": [label_id], "removeLabelIds": ["INBOX", "SPAM"]}
-        filter_info = {}
-        for gmail_filter in filters["filter"]:
-            if (gmail_filter["criteria"] == criteria) and (
-                gmail_filter["action"] == action
-            ):
-                filter_info = gmail_filter
-                break
-
+        filter_info = next(
+            (
+                gmail_filter
+                for gmail_filter in filters["filter"]
+                if (gmail_filter["criteria"] == criteria)
+                and (gmail_filter["action"] == action)
+            ),
+            {},
+        )
         if filter_info:
             logger.debug(f"Filter {filter_info} already exists.")
         else:

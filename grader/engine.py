@@ -254,9 +254,11 @@ class Grader:
                 all_cells = json.load(file).get("cells", [])
 
             # Get only nbgrader cells
-            for cell in all_cells:
-                if "nbgrader" in cell["metadata"]:
-                    nb_cells.append(cell["metadata"]["nbgrader"].get("grade_id"))
+            nb_cells.extend(
+                cell["metadata"]["nbgrader"].get("grade_id")
+                for cell in all_cells
+                if "nbgrader" in cell["metadata"]
+            )
         except (JSONDecodeError, UnicodeDecodeError):
             logger.debug(f'File "{path}" does not have a json structure.')
             return False
@@ -336,14 +338,13 @@ class Grader:
                 if cell["cell_type"] == "markdown":
                     is_todo = re.match(pat, cell["source"][0])
                     if is_todo:
-                        task = Task(name=is_todo.group("name"))
+                        task = Task(name=is_todo["name"])
                     continue
 
                 # If it is a test cell
-                if cell["cell_type"] == "code":
-                    if nb_data["grade"]:
-                        task.test_cell = nb_data["grade_id"]
-                        tasks.append(task)
+                if cell["cell_type"] == "code" and nb_data["grade"]:
+                    task.test_cell = nb_data["grade_id"]
+                    tasks.append(task)
         logger.debug(f'Task names were extracted for lesson "{lesson_name}".')
         return tasks
 

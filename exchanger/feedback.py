@@ -82,8 +82,8 @@ class FeedbackCreator:
         """
         timestamp = grade_result.timestamp.strftime(DATE_FORMAT)
         subject = f"{self._course_name} / {grade_result.lesson_name} " f"/ {timestamp}"
-        score = sum([task.score for task in grade_result.task_grades])
-        max_score = sum([task.max_score for task in grade_result.task_grades])
+        score = sum(task.score for task in grade_result.task_grades)
+        max_score = sum(task.max_score for task in grade_result.task_grades)
         body = self._grades_body.format(
             first_name=grade_result.first_name,
             lesson_name=grade_result.lesson_name,
@@ -110,7 +110,9 @@ class FeedbackCreator:
             return self._pics["61_80"]
         if grade_sum <= 99:
             return self._pics["81_99"]
-        return self._pics["100"]
+        if grade_sum == 100:
+            return self._pics["100"]
+        raise ValueError(f"Unknown value of grade sum '{grade_sum}'")
 
     def _get_absent_username_feedback(self) -> (str, str):
         """Create feedback when the user is unknown.

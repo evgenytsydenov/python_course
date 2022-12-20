@@ -73,9 +73,7 @@ class DatabaseHandler:
             q_filter = func.lower(les_tab.c.name) == lesson_name.lower()
             lesson_sql = select(["*"]).where(q_filter)
             result = connection.execute(lesson_sql).first()
-            les_info = {}
-            if result:
-                les_info = dict(result)
+            les_info = dict(result) if result else {}
             logger.debug(
                 f"The following information about lesson with "
                 f'name "{lesson_name}" was loaded: {les_info}.'
@@ -94,9 +92,7 @@ class DatabaseHandler:
             q_filter = func.lower(users_table.c.email) == email.lower()
             user_sql = select(["*"]).where(q_filter)
             result = connection.execute(user_sql).first()
-            user_info = {}
-            if result:
-                user_info = dict(result)
+            user_info = dict(result) if result else {}
             logger.debug(
                 f"The following information about user with "
                 f'email "{email}" was loaded: {user_info}.'

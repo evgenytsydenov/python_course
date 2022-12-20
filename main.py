@@ -114,7 +114,7 @@ if __name__ == "__main__":
                 exchanger.mark_as_completed(submission.exchange_id)
     except (KeyboardInterrupt, SystemExit):
         pass
-    except:  # noqa E722
+    except Exception:  # noqa BLE001
         logger.critical("Unhandled exception occurred.", exc_info=True)
         smtp_sender = SMTPSender(
             login=os.environ["SERVICE_EMAIL_LOGIN"],
