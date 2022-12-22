@@ -58,9 +58,9 @@ class Grader:
                 f'email "{submission.email}" was not found.'
             )
             grade_result.status = GradeStatus.ERROR_USERNAME_IS_ABSENT
-            shutil.rmtree(submission.filepath)
+            shutil.rmtree(submission.file_path)
             logger.debug(
-                f'Data of submission "{submission.exchange_id} was '
+                f'Data of submission "{submission.submission_id} was '
                 f'dropped from downloaded folder."'
             )
             return grade_result
@@ -78,9 +78,9 @@ class Grader:
                 f'"{submission.lesson_name}" was not found.'
             )
             grade_result.status = GradeStatus.ERROR_LESSON_IS_ABSENT
-            shutil.rmtree(submission.filepath)
+            shutil.rmtree(submission.file_path)
             logger.debug(
-                f'Data of submission "{submission.exchange_id} was '
+                f'Data of submission "{submission.submission_id} was '
                 f'dropped from downloaded folder."'
             )
             return grade_result
@@ -89,13 +89,13 @@ class Grader:
         grade_result.due_date = lesson_info["duedate"]
 
         # Check if the file for this lesson exists
-        downloaded_path = os.path.join(submission.filepath, f"{lesson_}.ipynb")
+        downloaded_path = os.path.join(submission.file_path, f"{lesson_}.ipynb")
         if not os.path.exists(downloaded_path):
             logger.info("The notebook for grading was not found among submitted files.")
             grade_result.status = GradeStatus.ERROR_NO_CORRECT_FILES
-            shutil.rmtree(submission.filepath)
+            shutil.rmtree(submission.file_path)
             logger.debug(
-                f'Data of submission "{submission.exchange_id} was '
+                f'Data of submission "{submission.submission_id} was '
                 f'dropped from downloaded folder."'
             )
             return grade_result
@@ -105,9 +105,9 @@ class Grader:
         if not self._is_submission_newer(submitted_path, submission.timestamp):
             logger.info("The submission is not newer than the existing one. Skip it.")
             grade_result.status = GradeStatus.SKIPPED
-            shutil.rmtree(submission.filepath)
+            shutil.rmtree(submission.file_path)
             logger.debug(
-                f'Data of submission "{submission.exchange_id} was '
+                f'Data of submission "{submission.submission_id} was '
                 f'dropped from downloaded folder."'
             )
             return grade_result
@@ -118,16 +118,16 @@ class Grader:
                 f"Structure of the notebook " f'"{downloaded_path}" is corrupted.'
             )
             grade_result.status = GradeStatus.ERROR_NOTEBOOK_CORRUPTED
-            shutil.rmtree(submission.filepath)
+            shutil.rmtree(submission.file_path)
             logger.debug(
-                f'Data of submission "{submission.exchange_id} was '
+                f'Data of submission "{submission.submission_id} was '
                 f'dropped from downloaded folder."'
             )
             return grade_result
 
         # Test the submission
         self._move_checked_files(
-            submission.filepath, submitted_path, submission.timestamp
+            submission.file_path, submitted_path, submission.timestamp
         )
         if not self._autograde(lesson_, user_):
             grade_result.status = GradeStatus.ERROR_GRADER_FAILED

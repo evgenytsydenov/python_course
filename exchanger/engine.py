@@ -211,8 +211,8 @@ class GmailExchanger:
                 email=self._extract_email(msg),
                 lesson_name=self._extract_lesson_name(msg),
                 timestamp=self._extract_timestamp(msg),
-                filepath=self._extract_attachments(msg),
-                exchange_id=mes_id,
+                file_path=self._extract_attachments(msg),
+                submission_id=mes_id,
             )
             submissions.append(new_submission)
             logger.info(
@@ -267,7 +267,7 @@ class GmailExchanger:
             f'Sender email "{sender}" was extracted '
             f'from the message with id "{msg["id"]}".'
         )
-        return sender
+        return sender.strip()
 
     def _extract_lesson_name(self, msg: dict[str, Any]) -> str:
         """Extract lesson name from message data.
@@ -286,7 +286,7 @@ class GmailExchanger:
             f'Lesson name "{les_name}" extracted '
             f'from the message with id "{msg["id"]}".'
         )
-        return les_name
+        return les_name.strip()
 
     def _extract_timestamp(self, msg: dict[str, Any]) -> datetime:
         """Extract timestamp from message data.

@@ -111,7 +111,7 @@ if __name__ == "__main__":
                     exchanger.send_feedback(feedback)
 
                 # Mark submission as graded
-                exchanger.mark_as_completed(submission.exchange_id)
+                exchanger.mark_as_completed(submission.submission_id)
     except (KeyboardInterrupt, SystemExit):
         pass
     except Exception:  # noqa BLE001
