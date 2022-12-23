@@ -4,63 +4,82 @@ import os
 import shutil
 from typing import Any, Iterable
 
-from google.oauth2 import service_account
-from googleapiclient.discovery import build
-from googleapiclient.http import MediaFileUpload
+from google.oauth2 import service_account  # type: ignore[import]
+from googleapiclient.discovery import Resource, build  # type: ignore[import]
+from googleapiclient.http import MediaFileUpload  # type: ignore[import]
 
+from definitions import PUBLISH_IGNORE
 from utils.app_logger import get_logger
 
 logger = get_logger(__name__)
 
 
 class GDrivePublisher:
-    """Use Google Drive API to publish files."""
+    """Use Google Drive API to publish files.
+
+    Attributes:
+        cloud_root_name: Name of the cloud folder where files will be placed.
+    """
 
     def __init__(self, creds: dict[str, Any], cloud_root_name: str) -> None:
         """Create GDrive publisher.
 
-        :param creds: Google Drive credentials.
-        :param cloud_root_name: name of root folder where to publish.
+        Args:
+            creds: Google Drive credentials.
+            cloud_root_name: Name of the root folder where the files will be placed.
         """
         self.cloud_root_name = cloud_root_name
         self._creds = creds
         self._scopes = ["https://www.googleapis.com/auth/drive"]
-        self._ignore_files = self._get_ignore_files()
-        self._gdrive = None
-        self._cloud_root_id = None
+        self._ignored_files = PUBLISH_IGNORE
+        self._gd_resource: Resource | None = None
+        self._gd_root_folder_id: str | None = None
+
+    @property
+    def _gdrive(self) -> Resource:
+        if self._gd_resource is None:
+            raise RuntimeError('The method "connect" must be called first.')
+        return self._gd_resource
+
+    @property
+    def _cloud_root_folder_id(self) -> str:
+        if self._gd_root_folder_id is None:
+            raise RuntimeError('The method "connect" must be called first.')
+        return self._gd_root_folder_id
 
     def connect(self) -> None:
-        """Find root cloud folder and build GDrive resource."""
-        # Build resource
-        self._gdrive = self._build_resource()
-
-        # Get id of cloud folder
+        """Find the root cloud folder and build the GDrive resource."""
+        self._gd_resource = self._build_resource()
         query = (
             f"mimeType = 'application/vnd.google-apps.folder' "
             f"and name = '{self.cloud_root_name}' "
             f"and trashed != True"
         )
-        cloud_file_id = self._find_cloud_files(query, attributes=["id"])
-        if cloud_file_id:
-            self._cloud_root_id = cloud_file_id[0]["id"]
+        cloud_folder_id = self._find_cloud_objs(query, attributes=["id"])
+        if cloud_folder_id:
+            self._gd_root_folder_id = cloud_folder_id[0]["id"]
         else:
             raise ValueError(
-                "The root cloud folder for publishing must be pre created."
+                "The root cloud folder for publishing must be pre created "
+                "and shared with the user whose credentials are provided."
             )
 
     def _create_cloud_path(self, cloud_path: str) -> str:
         """Create all intermediate folders on the way to the cloud path.
 
-        :param cloud_path: path of cloud folder that is relative to the
-        root cloud folder.
-        :return: id of the leaf folder.
+        Args:
+            cloud_path: Path of the cloud folder that is relative
+                to the root cloud folder.
+
+        Returns:
+            ID of the leaf folder.
         """
-        parent_id = self._cloud_root_id
+        parent_id = self._cloud_root_folder_id
         if cloud_path == ".":
             return parent_id
         for name in cloud_path.split(os.sep):
             query = f"name = '{name}' and '{parent_id}' in parents and trashed != True"
-            folder = self._find_cloud_files(query, ["id"])
+            folder = self._find_cloud_objs(query, ["id"])
             parent_id = (
                 folder[0]["id"]
                 if folder
@@ -70,174 +89,190 @@ class GDrivePublisher:
 
     def sync(
         self,
-        local_file: str,
+        local_obj: str,
         cloud_folder_path: str = ".",
         link_type: str = "webViewLink",
         to_share: bool = True,
     ) -> str:
-        """Sync a local file or folder with the cloud one.
+        """Sync the local file or folder with the cloud one.
 
-        :param to_share: to share file to anyone with link for read-only
-        access.
-        :param cloud_folder_path: path to a folder where to upload content
-        of the local file. It should be passed as a relative path from the
-        root cloud folder and should not contain the file itself.
-        :param link_type: type of link to return (webViewLink,
-        webContentLink, etc.)
-        :param local_file: path to local file or folder with the object itself.
-        :return link to the file.
+        Args:
+            local_obj: Path to the local file or folder to sync.
+            cloud_folder_path: Path to the folder where to upload content of the local
+                object. It should be passed as a relative path from the root cloud
+                folder and should not contain the object itself.
+            link_type: Type of the link to return (webViewLink, webContentLink, etc.)
+            to_share: Whether to share the file to anyone with link for read-only
+                access.
+
+        Returns:
+            Link to the file or folder in the cloud.
         """
-        if not os.path.exists(local_file):
-            raise ValueError(f'The local path "{local_file}" does not exist.')
+        if not os.path.exists(local_obj):
+            raise ValueError(f'The local path "{local_obj}" does not exist.')
 
         # Sanitize
-        if os.path.isdir(local_file):
-            self._sanitize_local_folder(local_file)
+        if os.path.isdir(local_obj):
+            self._sanitize_local_folder(local_obj)
 
         # Get id of the parent folder
-        local_name = os.path.basename(local_file)
+        local_name = os.path.basename(local_obj)
         cloud_name = os.path.join(cloud_folder_path, local_name)
         parent_id = self._create_cloud_path(cloud_folder_path)
 
-        # Find the file and sync it
+        # Find the file or folder and sync it
         query = (
             f"name = '{local_name}' and '{parent_id}' in parents "
             f"and trashed != True"
         )
-        cloud_file = self._find_cloud_files(query, ["id"])
-        if cloud_file:
-            cloud_file_id = cloud_file[0]["id"]
+        cloud_obj = self._find_cloud_objs(query, ["id"])
+        if cloud_obj:
+            cloud_obj_id = cloud_obj[0]["id"]
             logger.debug(
                 f'File or folder "{local_name}" exists '
                 f'in the cloud path "{cloud_folder_path}".'
             )
-            self._update_cloud_file(cloud_file_id, local_file)
+            self._update_cloud_obj(cloud_obj_id, local_obj)
         else:
             logger.debug(
                 f'File or folder "{local_name}" does not exist '
                 f'in the cloud path "{cloud_folder_path}".'
             )
-            cloud_file_id = self._upload_file(local_file, parent_id)
+            cloud_obj_id = self._upload_local_obj(local_obj, parent_id)
         logger.debug(
-            f'Content of the local object "{local_file}" was '
+            f'Content of the local object "{local_obj}" was '
             f'synchronized with the cloud file "{cloud_name}".'
         )
 
         # Share
         if link_type == "const_thumbnail":
-            file_params = self._get_cloud_file(cloud_file_id, ["permissions", "name"])
-            file_params[
+            obj_params = self._get_cloud_obj_attributes(
+                cloud_obj_id, ["permissions", "name"]
+            )
+            obj_params[
                 link_type
-            ] = f"http://drive.google.com/thumbnail?id={cloud_file_id}"
+            ] = f"https://drive.google.com/thumbnail?id={cloud_obj_id}"
         else:
-            file_params = self._get_cloud_file(
-                cloud_file_id, ["permissions", link_type, "name"]
+            obj_params = self._get_cloud_obj_attributes(
+                cloud_obj_id, ["permissions", link_type, "name"]
             )
         if to_share:
             is_shared = any(
                 (p["id"] == "anyoneWithLink") and (p["role"] == "reader")
-                for p in file_params["permissions"]
+                for p in obj_params["permissions"]
             )
             if is_shared:
                 logger.debug(
-                    f'File or folder "{file_params["name"]}" with '
-                    f'id "{cloud_file_id}" is already shared.'
+                    f'File or folder "{obj_params["name"]}" with '
+                    f'id "{cloud_obj_id}" is already shared.'
                 )
             else:
-                self._share_cloud_file(cloud_file_id)
+                self._share_cloud_obj(cloud_obj_id)
                 logger.debug(
-                    f'File or folder "{file_params["name"]}" with '
-                    f'id "{cloud_file_id}" was shared with link '
+                    f'File or folder "{obj_params["name"]}" with '
+                    f'id "{cloud_obj_id}" was shared with a link '
                     f"to anyone for reading."
                 )
-        return file_params[link_type]
+        link: str = obj_params[link_type]
+        return link
 
-    def _update_cloud_file(self, file_id: str, path_local_file: str) -> None:
-        """Change cloud file content.
+    def _update_cloud_obj(self, cloud_obj_id: str, path_local_obj: str) -> None:
+        """Update content of the cloud file or folder.
 
-        :param file_id: id of file.
-        :param path_local_file: path to local file or folder.
+        Args:
+            cloud_obj_id: ID of the file of folder in the cloud.
+            path_local_obj: Path to the local file or folder.
         """
-        # If file
-        if not os.path.isdir(path_local_file):
-            c_file = self._get_cloud_file(file_id, ["id", "md5Checksum"])
-            if c_file["md5Checksum"] != self._get_md5_hash(path_local_file):
-                media = MediaFileUpload(path_local_file, resumable=True)
-                self._gdrive.files().update(fileId=file_id, media_body=media).execute()
+        # If it is a file
+        if not os.path.isdir(path_local_obj):
+            c_file = self._get_cloud_obj_attributes(cloud_obj_id, ["id", "md5Checksum"])
+            if c_file["md5Checksum"] != self._get_md5_hash(path_local_obj):
+                media = MediaFileUpload(path_local_obj, resumable=True)
+                self._gdrive.files().update(
+                    fileId=cloud_obj_id, media_body=media
+                ).execute()
                 logger.debug(
-                    f'File "{file_id}" was updated '
-                    f'with content from "{path_local_file}"'
+                    f'File "{cloud_obj_id}" was updated '
+                    f'with content from "{path_local_obj}"'
                 )
 
-        # If directory
+        # If it is a directory
         else:
-            query = f"'{file_id}' in parents and trashed != True"
-            cloud_content = self._find_cloud_files(query, ["id", "name"])
-            cloud_content = {f["name"]: f for f in cloud_content}
+            query = f"'{cloud_obj_id}' in parents and trashed != True"
+            cloud_content = {
+                f["name"]: f for f in self._find_cloud_objs(query, ["id", "name"])
+            }
             cloud_names = set(cloud_content.keys())
-            local_content = self._get_local_content(path_local_file)
+            local_content = self._get_local_content(path_local_obj)
             local_names = set(local_content.keys())
             for common in cloud_names.intersection(local_names):
-                self._update_cloud_file(
+                self._update_cloud_obj(
                     cloud_content[common]["id"], local_content[common]["path"]
                 )
             for cloud_drop in cloud_names.difference(local_names):
                 self._remove_cloud_file(cloud_content[cloud_drop]["id"])
             for cloud_add in local_names.difference(cloud_names):
-                self._upload_file(local_content[cloud_add]["path"], file_id)
+                self._upload_local_obj(local_content[cloud_add]["path"], cloud_obj_id)
 
-    def _share_cloud_file(self, file_id: str) -> None:
-        """Share file to anyone with a link.
+    def _share_cloud_obj(self, obj_id: str) -> None:
+        """Share the file or folder to anyone with a link.
 
-        :param file_id: id of file to share.
+        Args:
+            obj_id: ID of the file or folder in the cloud to share.
         """
         permissions = {"type": "anyone", "role": "reader"}
-        self._gdrive.permissions().create(fileId=file_id, body=permissions).execute()
+        self._gdrive.permissions().create(fileId=obj_id, body=permissions).execute()
         logger.debug(
-            f'Permissions of file with id "{file_id}" '
+            f'Permissions of the file of folder with id "{obj_id}" '
             f'was modified to "{permissions}".'
         )
 
-    def _upload_file(self, path_local_file: str, parent_id: str) -> str:
-        """Upload local file or folder to Google Drive.
+    def _upload_local_obj(self, path_local_obj: str, parent_id: str) -> str:
+        """Upload the local file or folder to Google Drive.
 
-        :param path_local_file: path to local file or folder.
-        :param parent_id: id of the cloud folder where to upload.
-        :return file id.
+        Args:
+            path_local_obj: Path to the local file or folder.
+            parent_id: ID of the cloud folder where to upload.
+
+        Returns:
+            ID of the uploaded file or folder.
         """
         # If it is a folder
-        if os.path.isdir(path_local_file):
-            dir_name = os.path.basename(path_local_file)
+        if os.path.isdir(path_local_obj):
+            dir_name = os.path.basename(path_local_obj)
             folder_id = self._create_cloud_folder(dir_name, parent_id)
-            for obj_name in os.listdir(path_local_file):
-                path = os.path.join(path_local_file, obj_name)
-                self._upload_file(path, folder_id)
+            for obj_name in os.listdir(path_local_obj):
+                path = os.path.join(path_local_obj, obj_name)
+                self._upload_local_obj(path, folder_id)
             logger.debug(
-                f'Folder "{path_local_file}" was uploaded '
-                f'to the cloud folder with id "{parent_id}".'
+                f'Folder "{path_local_obj}" was uploaded '
+                f'to the cloud folder with the id "{parent_id}".'
             )
             return folder_id
 
         # If it is a file
-        obj_name = os.path.split(path_local_file)[-1]
+        obj_name = os.path.split(path_local_obj)[-1]
         file_metadata = {"name": obj_name, "parents": [parent_id]}
-        media = MediaFileUpload(path_local_file, resumable=True)
-        file = (
+        media = MediaFileUpload(path_local_obj, resumable=True)
+        file: dict[str, str] = (
             self._gdrive.files()
             .create(body=file_metadata, fields="id", media_body=media)
             .execute()
         )
         logger.debug(
-            f'File "{path_local_file}" was uploaded to the cloud '
+            f'File "{path_local_obj}" was uploaded to the cloud '
             f'folder with id "{parent_id}".'
         )
         return file["id"]
 
     def _get_local_content(self, path_folder: str) -> dict[str, Any]:
-        """Get content of local folder.
+        """Get content of the local folder.
 
-        :param path_folder: path to local folder.
-        :return: names and hash of files and folders.
+        Args:
+            path_folder: Path to the local folder.
+
+        Returns:
+            Names and hashes of files and folders.
         """
         result = {}
         for file in os.listdir(path_folder):
@@ -247,22 +282,25 @@ class GDrivePublisher:
                 result[file]["md5hash"] = self._get_md5_hash(path)
         return result
 
+    # TODO: This should not remove files
     def _sanitize_local_folder(self, path: str) -> None:
-        """Clean local folder from unnecessary files.
+        """Clean the local folder from unnecessary files.
 
-        :param path: path of folder to clean.
+        Args:
+            path: Path of the folder to clean.
         """
-        for pattern in self._ignore_files:
+        for pattern in self._ignored_files:
             path_ = os.path.join(path, pattern)
             to_drop = glob.glob(path_, recursive=True)
             for file in to_drop:
                 shutil.rmtree(file)
                 logger.debug(f'File "{file}" was sanitized.')
 
-    def _build_resource(self) -> Any:
-        """Build Google Drive api resource.
+    def _build_resource(self) -> Resource:
+        """Build the Google Drive API resource.
 
-        :return: resource for interaction.
+        Returns:
+            Resource for interactions.
         """
         credentials = service_account.Credentials.from_service_account_info(
             self._creds, scopes=self._scopes
@@ -272,10 +310,13 @@ class GDrivePublisher:
         return resource
 
     def _get_md5_hash(self, path_file: str) -> str:
-        """Get md5 hash of a file.
+        """Get md5 hash of the file.
 
-        :param path_file: path to local file.
-        :return: hash value.
+        Args:
+            path_file: Path to the local file.
+
+        Returns:
+            Hash value.
         """
         hasher = hashlib.md5()
         with open(path_file, "rb") as f:
@@ -283,41 +324,55 @@ class GDrivePublisher:
                 hasher.update(chunk)
         return hasher.hexdigest()
 
-    def _create_cloud_folder(self, name: str, parent_id: str) -> str:
-        """Create empty cloud folder.
+    def _create_cloud_folder(self, name: str, parent_obj_id: str) -> str:
+        """Create empty the cloud folder.
 
-        :param name: name of folder.
-        :param parent_id: id of parent folder.
-        :return: id of new folder.
+        Args:
+            name: Name of the folder to create.
+            parent_obj_id: ID of the parent folder.
+
+        Returns:
+            ID of the created folder.
         """
         meta = {
             "name": name,
             "mimeType": "application/vnd.google-apps.folder",
-            "parents": [parent_id],
+            "parents": [parent_obj_id],
         }
-        file = self._gdrive.files().create(body=meta, fields="id").execute()
-        logger.debug(f'Cloud folder "{name}" was created with id "{file["id"]}".')
-        return file["id"]
+        folder: dict[str, str] = (
+            self._gdrive.files().create(body=meta, fields="id").execute()
+        )
+        logger.debug(
+            f'The cloud folder "{name}" was created with the id "{folder["id"]}".'
+        )
+        return folder["id"]
 
-    def _remove_cloud_file(self, file_id: str) -> None:
-        """Remove file or folder from the cloud.
+    def _remove_cloud_file(self, obj_id: str) -> None:
+        """Remove the file or folder from the cloud.
 
-        :param file_id: id of file.
+        Args:
+            obj_id: ID of the file or folder.
         """
-        self._gdrive.files().delete(fileId=file_id).execute()
-        logger.debug(f'File or folder with id "{file_id}" was removed.')
+        self._gdrive.files().delete(fileId=obj_id).execute()
+        logger.debug(f'File or folder with the id "{obj_id}" was removed.')
 
-    def _find_cloud_files(
+    def _find_cloud_objs(
         self, query: str, attributes: Iterable[str]
     ) -> list[dict[str, Any]]:
-        """Get files attributes in accordance to the query.
+        """Find files and folders in accordance to the query.
 
-        :param attributes: attributes to load.
-        :param query: filter query.
-        :return: list with attributes of each file in specified folder.
+        Args:
+            query: Filter query.
+            attributes: Attributes of files or folders to load.
+
+        Returns:
+            List of files and folders with the attributes.
         """
         fields = f'nextPageToken, files({", ".join(attributes)})'
-        results = self._gdrive.files().list(q=query, fields=fields).execute()
+        results: dict[str, Any] = (
+            self._gdrive.files().list(q=query, fields=fields).execute()
+        )
+
         next_page_token = results.get("nextPageToken")
         while next_page_token:
             next_page = (
@@ -327,30 +382,23 @@ class GDrivePublisher:
             )
             next_page_token = next_page.get("nextPageToken")
             results["files"] += next_page["files"]
-        return results["files"]
+        files: list[dict[str, Any]] = results["files"]
+        return files
 
-    def _get_cloud_file(
+    def _get_cloud_obj_attributes(
         self, file_id: str, attributes: Iterable[str]
     ) -> dict[str, Any]:
-        """Get attributes of cloud file.
+        """Get attributes of the cloud file or folder.
 
-        :param file_id: if of file.
-        :param attributes: attributes to get.
-        :return: dict with attributes.
+        Args:
+            file_id: ID of the file or folder.
+            attributes: Attributes to get.
+
+        Returns:
+            Attributes.
         """
         fields = f'{", ".join(attributes)}'
-        return self._gdrive.files().get(fileId=file_id, fields=fields).execute()
-
-    def _get_ignore_files(self) -> list[str]:
-        """Get file patterns to ignore when publishing.
-
-        :return: file patterns.
-        """
-        patterns = []
-        path = os.path.join(os.path.dirname(__file__), ".publishignore")
-        with open(path) as file:
-            patterns = [
-                line for line in file if line.strip() and not line.startswith("#")
-            ]
-        logger.debug("Publish ignore files were loaded.")
-        return patterns
+        attrs: dict[str, Any] = (
+            self._gdrive.files().get(fileId=file_id, fields=fields).execute()
+        )
+        return attrs

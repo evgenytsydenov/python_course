@@ -8,3 +8,4 @@ LOG_FORMAT_DEBUG = (
 LOG_FORMAT_INFO = "%(asctime)s | %(levelname)s | %(message)s"
 DATE_FORMAT = "%Y-%m-%d %H:%M:%S %Z"
 TASK_NAME_PATTERN = r"^#### TODO:\s+(?P<name>.+)$"
+PUBLISH_IGNORE = [".ipynb_checkpoints"]
