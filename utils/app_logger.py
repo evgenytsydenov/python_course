@@ -2,6 +2,7 @@ import logging
 import logging.handlers
 import os
 import time
+import typing
 from datetime import datetime
 from time import struct_time
 
@@ -58,7 +59,7 @@ def _get_file_handler(path: str) -> logging.FileHandler:
     return file_handler
 
 
-def _get_stream_handler() -> logging.StreamHandler:
+def _get_stream_handler() -> logging.StreamHandler[typing.TextIO]:
     """Create logger to print logs to the console.
 
     Returns:
