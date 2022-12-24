@@ -1,10 +1,9 @@
 import os
 
-import traitlets.config
+import traitlets.config  # type: ignore[import]
 from dotenv import load_dotenv
-from sqlalchemy.engine.url import URL
 
-from definitions import DATE_FORMAT, LOG_FORMAT_INFO, ROOT_PATH
+from definitions import DATE_FORMAT, DB_URL, LOG_FORMAT_INFO, ROOT_PATH
 
 load_dotenv()
 
@@ -27,17 +26,7 @@ config.NbGrader.logfile = os.path.join(log_path, "formgrader.log")
 # Course settings
 config.CourseDirectory.course_id = os.environ["COURSE_NAME"]
 config.CourseDirectory.root = ROOT_PATH
-config.CourseDirectory.db_url = str(
-    URL(
-        drivername=os.environ["DB_DRIVER"],
-        username=os.environ["DB_GRADER_USER"],
-        password=os.environ["DB_GRADER_PASSWORD"],
-        host=os.environ["DB_HOST"],
-        port=os.environ["DB_PORT"],
-        database=os.environ["DB_NAME"],
-        query={"charset": "utf8mb4"},
-    )
-)
+config.CourseDirectory.db_url = DB_URL
 
 # Increase timeout to 180 seconds
 config.ExecutePreprocessor.timeout = 180
