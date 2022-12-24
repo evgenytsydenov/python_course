@@ -1,13 +1,13 @@
 repos:
-  - repo: https://github.com/python-poetry/poetry
-    rev: 1.3.1
-    hooks:
-      - id: poetry-check
-      - id: poetry-lock
-      - id: poetry-export
-        args: ["-f", "requirements.txt", "-o", "requirements.txt"]
-      - id: poetry-export
-        args: ["-f", "requirements.txt", "-o", "requirements_dev.txt", "--with", "dev"]
+  # - repo: https://github.com/python-poetry/poetry
+  #   rev: 1.3.1
+  #   hooks:
+  #     - id: poetry-check
+  #     - id: poetry-lock
+  #     - id: poetry-export
+  #       args: ["-f", "requirements.txt", "-o", "requirements.txt"]
+  #     - id: poetry-export
+  #       args: ["-f", "requirements.txt", "-o", "requirements_dev.txt", "--with", "dev"]
 
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v4.4.0
