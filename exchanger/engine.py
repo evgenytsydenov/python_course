@@ -1,24 +1,24 @@
 import base64
-import functools
+import contextlib
 import os
 import pickle
 import re
 import shutil
 import socket
-import sys
 import time
 from datetime import datetime, timezone
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from email.utils import formataddr
+from functools import partial, wraps
 from typing import Any, Callable
 
 import requests
-from google.auth.exceptions import TransportError
-from google.auth.transport.requests import Request
-from google_auth_oauthlib.flow import InstalledAppFlow
-from googleapiclient.discovery import build
-from googleapiclient.errors import HttpError
+from google.auth.exceptions import TransportError  # type: ignore[import]
+from google.auth.transport.requests import Request  # type: ignore[import]
+from google_auth_oauthlib.flow import InstalledAppFlow  # type: ignore[import]
+from googleapiclient.discovery import Resource, build  # type: ignore[import]
+from googleapiclient.errors import HttpError  # type: ignore[import]
 
 from definitions import DATE_FORMAT, ROOT_PATH
 from utils.app_logger import get_logger
@@ -27,61 +27,80 @@ from utils.data_models import Feedback, Submission
 logger = get_logger(__name__)
 
 
+# TODO: Provide type annotation
 def slow_api_calls(
-    func: Callable[..., ...] | None = None, *, min_latency: float = 1
-) -> Callable[..., ...]:
+    func: Callable[..., Any] | None = None, *, min_latency: float = 1
+) -> Any:
     """Decorator to prevent exceeding of frequency rate limits of API calls.
 
-    :param func: function to decorate.
-    :param min_latency: minimal time of latency between API calls in seconds.
-    :return: decorated function.
+    Args:
+        func: Function to decorate.
+        min_latency: Minimal time of the latency between API calls in seconds.
+
+    Returns:
+        Decorated function.
     """
     if func is None:
-        return functools.partial(slow_api_calls, min_latency=min_latency)
+        return partial(slow_api_calls, min_latency=min_latency)
 
-    @functools.wraps(func)
-    def _wrapper(*args, **kwargs) -> Any:
-        time_diff = time.time() - _wrapper.last_call
+    @wraps(func)
+    def _wrapper(*args, **kwargs):  # type: ignore[no-untyped-def] # noqa[ANN202]
+        time_diff = time.time() - _wrapper.last_call  # type: ignore[attr-defined]
         if time_diff < min_latency:
             time.sleep(min_latency - time_diff)
-        _wrapper.last_call = time.time()
-        return func(*args, **kwargs)
+        _wrapper.last_call = time.time()  # type: ignore[attr-defined]
+        return func(*args, **kwargs)  # type: ignore[misc]
 
-    _wrapper.last_call = time.time()
+    _wrapper.last_call = time.time()  # type: ignore[attr-defined]
     return _wrapper
 
 
+# TODO: Provide type annotation
 def repeat_request(
-    func: Callable[..., ...] | None = None, *, recreate_resource: bool = True
-) -> Callable[..., ...]:
+    func: Callable[..., Any] | None = None,
+    *,
+    recreate_resource: bool = True,
+    time_delay: list[int] | None = None,
+) -> Any:
     """Decorator for repeating gmail API calls.
 
-    Intended to overcome connection issues. This will repeat calls with time
-    delay in 1, 5, 10, 15, and 20 minutes.
+    Intended to overcome connection issues. The requests will be repeated with a time
+    delay until the request is successful.
 
-    :param func: function to decorate.
-    :param recreate_resource: if gmail service should be rebuilt.
-    :return: decorated function.
+    Args:
+        time_delay: List of time delays in minutes to wait before trying the request
+            again. If this parameter is not specified, the following values will be
+            used: [1, 2, 5, 10].
+        func: Function to decorate.
+        recreate_resource: Whether the gmail resource should be rebuilt.
+
+    Returns:
+        Decorated function.
     """
     if func is None:
-        return functools.partial(repeat_request, recreate_resource=recreate_resource)
+        return partial(
+            repeat_request, recreate_resource=recreate_resource, time_delay=time_delay
+        )
 
-    @functools.wraps(func)
-    def _wrapper(self: Any, *args, **kwargs) -> Any:
-        for timeout in [1, 5, 10, 15, 20]:
+    delays = time_delay or [1, 2, 5, 10]
+
+    @wraps(func)
+    def _wrapper(self, *args, **kwargs):  # type: ignore[no-untyped-def] # noqa[ANN202]
+        error = Exception("The request was not completed.")
+        for timeout in delays:
             try:
-                return func(self, *args, **kwargs)
+                return func(self, *args, **kwargs)  # type: ignore[misc]
             except (
                 ConnectionError,
                 TransportError,
                 HttpError,
-                requests.ConnectionError,
+                requests.exceptions.ConnectionError,
                 socket.timeout,
+                socket.gaierror,
             ) as err:
+                logger.debug(f"Failed with {type(err).__name__}.", exc_info=True)
                 error = err
-                exc_type, _, _ = sys.exc_info()
                 sleep_time = timeout * 60
-                logger.debug(f"Failed with {exc_type.__name__}.", exc_info=True)
                 logger.debug(f"Sleep for {sleep_time} seconds.")
                 time.sleep(sleep_time)
                 if recreate_resource:
@@ -105,15 +124,16 @@ class GmailExchanger:
         send_email: str,
         path_downloaded: str,
     ) -> None:
-        """Create GmailExchanger.
+        """Create Gmail exchanger.
 
-        :param creds: OAuth2 credentials that should be downloaded from
-        Gmail API console.
-        :param fetch_label: email label to monitor. Each message with this
-        label will be considered as submission.
-        :param send_name: sender name for outgoing messages.
-        :param send_email: email of sender to show in outgoing messages.
-        :param path_downloaded: where to save attachments.
+        Args:
+            creds: OAuth2 credentials that should be downloaded from the Gmail API
+                console.
+            fetch_label: Email label to monitor. Each message with this label will
+                be considered as a submission.
+            send_name: Name of the sender for outgoing messages.
+            send_email: Email of the sender to show in outgoing messages.
+            path_downloaded: Where to save attachments.
         """
         self._creds = creds
         self._fetch_label = fetch_label
@@ -125,17 +145,141 @@ class GmailExchanger:
             "https://www.googleapis.com/auth/gmail.modify",
             "https://www.googleapis.com/auth/gmail.settings.basic",
         ]
-        self._gmail = None
-        self._label_id = None
+        self._gmail_resource: Resource | None = None
+        self._label_id: str | None = None
 
-    @repeat_request(recreate_resource=False)
+    @property
+    def _gmail(self) -> Resource:
+        if self._gmail_resource is None:
+            raise RuntimeError('The method "connect" must be called first.')
+        return self._gmail_resource
+
+    def connect(
+        self,
+        to_create_filter: bool = False,
+        fetch_keyword: str | None = None,
+        fetch_alias: str | None = None,
+    ) -> None:
+        """Start up preparations.
+
+        User authorization is performed, and the necessary label is
+        created or found among the existing labels.
+
+        Args:
+            to_create_filter: If the email filter should be created.
+            fetch_keyword: All messages containing this keyword in the subject will
+                be marked with the fetcher label (must be specified when
+                `to_create_filter` is True).
+            fetch_alias: Email to which the submissions are sent (must be specified
+                when `to_create_filter` is True).
+        """
+        # Build gmail api resource
+        self._gmail_resource = self._build_resource()
+
+        # Create label if not exists
+        self._label_id = self._create_label(self._fetch_label)
+
+        # Create filter for submissions
+        if to_create_filter:
+            self._create_filter(
+                self._label_id, fetch_keyword=fetch_keyword, fetch_alias=fetch_alias
+            )
+        logger.info("Gmail exchanger started successfully.")
+
+    def fetch_new_submissions(self) -> list[Submission]:
+        """Fetch new submissions from gmail.
+
+        Each unread message with <GMAIL_LABEL> is handled as a new submission.
+        Attachments of such message will be unpacked and saved to the specified
+        path for downloads.
+
+        Returns:
+            New submissions.
+        """
+        # Get new submissions
+        message_ids = self._get_new_messages()
+
+        # Parse each submission
+        submissions = []
+        for mes_id in message_ids:
+            logger.info(f'Start parsing submission with the id "{mes_id}".')
+            msg = self._load_message(mes_id)
+            new_submission = Submission(
+                email=self._extract_email(msg),
+                lesson_name=self._extract_lesson_name(msg),
+                timestamp=self._extract_timestamp(msg),
+                file_path=self._extract_attachments(msg),
+                submission_id=mes_id,
+            )
+            submissions.append(new_submission)
+            logger.info(
+                f'Submission data from the message with the id "{mes_id}" '
+                f"was parsed and saved."
+            )
+        return submissions
+
+    @slow_api_calls(min_latency=5)  # type: ignore[misc]
+    @repeat_request
+    def _get_new_messages(self) -> list[str]:
+        """Fetch new messages with submissions.
+
+        Returns:
+            List with IDs of unread messages.
+        """
+        query = "is:unread"
+        result = (
+            self._gmail.users()
+            .messages()
+            .list(userId="me", q=query, labelIds=[self._label_id])
+            .execute()
+        )
+        return [msg["id"] for msg in result.get("messages", {})]
+
+    @repeat_request
+    def send_feedback(self, feedback: Feedback) -> None:
+        """Send HTML feedback.
+
+        Args:
+            feedback: Feedback that contains a email address, subject and html content.
+        """
+        # Create message
+        message = MIMEMultipart()
+        message["to"] = formataddr((feedback.student_name, feedback.email))
+        message["from"] = formataddr((self._send_name, self._send_email))
+        message["subject"] = feedback.subject
+        message.attach(MIMEText(feedback.html_body, "html"))
+        raw_message = base64.urlsafe_b64encode(message.as_string().encode("utf-8"))
+        msg_decoded = {"raw": raw_message.decode("utf-8")}
+
+        # Send message
+        self._gmail.users().messages().send(userId="me", body=msg_decoded).execute()
+        logger.info(f'The message "{feedback.subject}" was sent to "{feedback.email}".')
+
+    @repeat_request
+    def mark_as_completed(self, message_id: str) -> None:
+        """Mark that the submission was graded and the feedback was sent.
+
+        After submission handling, its message is marked as READ
+        so that it will not be handled with the next fetching.
+
+        Args:
+            message_id: ID of the message.
+        """
+        mods = {"addLabelIds": [], "removeLabelIds": ["UNREAD"]}
+        self._gmail.users().messages().modify(
+            body=mods, userId="me", id=message_id
+        ).execute()
+        logger.info(f'Message with the id "{message_id}" was marked as read.')
+
+    # TODO: Can be used without browser?
+    @repeat_request(recreate_resource=False)  # type: ignore[misc]
     def _build_resource(self) -> Any:
         """Build gmail api resource.
 
-        The first start requires to approve the access of this app to the
-        gmail data.
+        The first start requires to approve the access of this app to the gmail data.
 
-        :return: resource for interaction.
+        Returns:
+            Resource for interactions.
         """
         creds = None
         if os.path.exists(self._path_pickle):
@@ -159,257 +303,65 @@ class GmailExchanger:
         logger.debug("New Gmail resource was created.")
         return _gmail
 
-    def connect(
-        self,
-        to_create_filter: bool = False,
-        fetch_keyword: str | None = None,
-        fetch_alias: str | None = None,
-    ) -> None:
-        """Start up preparations.
-
-        Here, user authorization is performed, and the necessary label is
-        created or found among the existing labels.
-
-        :param to_create_filter: if a gmail filter should be created.
-        :param fetch_alias: email to which the submissions are sent
-        (must be  specified when `to_create_filter` is True).
-        :param fetch_keyword: all messages containing this keyword in the
-        subject will be marked with the fetcher label (must be specified when
-        `to_create_filter` is True).
-        """
-        # Build gmail api resource
-        self._gmail = self._build_resource()
-
-        # Create label if not exists
-        self._label_id = self._get_label_id(self._fetch_label)
-
-        # Create filter for submissions
-        if to_create_filter:
-            self._create_filter(
-                self._label_id, fetch_keyword=fetch_keyword, fetch_alias=fetch_alias
-            )
-        logger.info("Gmail exchanger started successfully.")
-
-    def fetch_new_submissions(self) -> list[Submission]:
-        """Fetch new submissions from gmail.
-
-        Each unread message with <GMAIL_LABEL> is handled as a new submission.
-        Attachments of such message will be unpacked and saved
-        to the specified path for downloads.
-
-        :return: new submissions.
-        """
-        # Get new submissions
-        message_ids = self._get_new_messages()
-
-        # Parse each submission
-        submissions = []
-        for mes_id in message_ids:
-            logger.info(f'Start parsing submission with id "{mes_id}".')
-            msg = self._load_message(mes_id)
-            new_submission = Submission(
-                email=self._extract_email(msg),
-                lesson_name=self._extract_lesson_name(msg),
-                timestamp=self._extract_timestamp(msg),
-                file_path=self._extract_attachments(msg),
-                submission_id=mes_id,
-            )
-            submissions.append(new_submission)
-            logger.info(
-                f'Submission data from message with id "{mes_id}" '
-                f"was parsed and saved."
-            )
-        return submissions
-
-    @slow_api_calls(min_latency=5)
     @repeat_request
-    def _get_new_messages(self) -> list[str]:
-        """Fetch new messages with submissions.
+    def _download_attachment(self, msg_id: str, att_id: str) -> str:
+        """Download message attachment.
 
-        :return: list of new message ids.
+        Sometimes, the attachment is not included in the message,
+        so it is necessary to download it separately.
+
+        Args:
+            msg_id: Message ID.
+            att_id: Attachment ID.
+
+        Returns:
+            Attachment data.
         """
-        query = "is:unread"
-        result = (
+        att = (
             self._gmail.users()
             .messages()
-            .list(userId="me", q=query, labelIds=[self._label_id])
+            .attachments()
+            .get(userId="me", messageId=msg_id, id=att_id)
             .execute()
         )
-        return [msg["id"] for msg in result.get("messages", {})]
-
-    @repeat_request
-    def mark_as_completed(self, message_id: str) -> None:
-        """Mark that the submission was graded and feedback was sent.
-
-        After submission handling, its message is marked as READ so that
-        it will not be handled with the next fetching.
-
-        :param message_id: id of message.
-        """
-        mods = {"addLabelIds": [], "removeLabelIds": ["UNREAD"]}
-        self._gmail.users().messages().modify(
-            body=mods, userId="me", id=message_id
-        ).execute()
-        logger.info(f'Message with id "{message_id}" was marked as read.')
-
-    def _extract_email(self, msg: dict[str, Any]) -> str:
-        """Extract sender email from message data.
-
-        :param msg: message data.
-        :return: email.
-        """
-        headers = msg["payload"]["headers"]
-        sender = next(x for x in headers if x["name"] == "From")["value"]
-        match = re.search(".*<(?P<email>.*)>.*", sender)
-        if match:
-            sender = match["email"]
-        logger.debug(
-            f'Sender email "{sender}" was extracted '
-            f'from the message with id "{msg["id"]}".'
-        )
-        return sender.strip()
-
-    def _extract_lesson_name(self, msg: dict[str, Any]) -> str:
-        """Extract lesson name from message data.
-
-        It is considered that each message with submission has a subject of
-        the structure "<gmail_keyword> / <lesson_name>".
-
-        :param msg: message data.
-        :return: lesson name.
-        """
-        headers = msg["payload"]["headers"]
-        subject = next(x for x in headers if x["name"] == "Subject")["value"]
-        match = re.search("^(?P<label>.*)/(?P<lesson>.*)$", subject)
-        les_name = match["lesson"] if match else ""
-        logger.debug(
-            f'Lesson name "{les_name}" extracted '
-            f'from the message with id "{msg["id"]}".'
-        )
-        return les_name.strip()
-
-    def _extract_timestamp(self, msg: dict[str, Any]) -> datetime:
-        """Extract timestamp from message data.
-
-        This extracts the timestamp set by Gmail, not user's one.
-
-        :param msg: message data.
-        :return: timestamp in UTC.
-        """
-        utc_time = datetime.utcfromtimestamp(int(msg["internalDate"]) / 1000).replace(
-            tzinfo=timezone.utc
-        )
-        logger.debug(
-            f'Timestamp "{utc_time.strftime(DATE_FORMAT)}" '
-            f'was extracted from the message with id "{msg["id"]}".'
-        )
-        return utc_time
-
-    @repeat_request
-    def _extract_attachments(self, msg: dict[str, Any]) -> str:
-        """Extract files from message data.
-
-        This saves all attachments of the message to the specified folder for
-        downloads. If the attachment is a ZIP or TAR archive, it will be
-        unpacked.
-
-        :param msg: message data.
-        :return: path to folder where data was saved.
-        """
-        # Create folder for submission content
-        path = os.path.join(self._path_downloaded, msg["id"])
-        if os.path.exists(path):
-            logger.warning(
-                f'The folder "{path}" already exists. '
-                f"Its content will be overwritten."
-            )
-            shutil.rmtree(path)
-        os.makedirs(path)
-
-        # Download attachments
-        for part in msg["payload"].get("parts", {}):
-            if not part["filename"]:
-                continue
-            if "data" in part["body"]:
-                data = part["body"]["data"]
-            else:
-                att_id = part["body"]["attachmentId"]
-                att = (
-                    self._gmail.users()
-                    .messages()
-                    .attachments()
-                    .get(userId="me", messageId=msg["id"], id=att_id)
-                    .execute()
-                )
-                data = att["data"]
-            file_data = base64.urlsafe_b64decode(data.encode("UTF-8"))
-            file_path = os.path.join(path, part["filename"])
-            with open(file_path, "wb") as f:
-                f.write(file_data)
-                logger.debug(
-                    f'Attachment "{part["filename"]}" of the '
-                    f'message with id "{msg["id"]}" was saved '
-                    f'to "{file_path}".'
-                )
-
-        # Extract files from archives
-        for file in os.listdir(path):
-            path_file = os.path.join(path, file)
-            try:
-                shutil.unpack_archive(path_file, path)
-                logger.debug(f'File "{path_file}" was unpacked.')
-                os.remove(path_file)
-            except shutil.ReadError:
-                pass
-        return path
+        return str(att["data"])
 
     @repeat_request
     def _load_message(self, message_id: str) -> dict[str, Any]:
         """Download message content.
 
-        :param message_id: id of the message.
-        :return: message content.
+        Args:
+            message_id: ID of the message to download.
+
+        Returns:
+            Message content.
         """
-        content = (
+        content: dict[str, Any] = (
             self._gmail.users().messages().get(userId="me", id=message_id).execute()
         )
-        logger.debug(f'Content of the message with id "{message_id}" was downloaded.')
+        logger.debug(
+            f'Content of the message with the id "{message_id}" was downloaded.'
+        )
         return content
 
     @repeat_request
-    def send_feedback(self, feedback: Feedback) -> None:
-        """Send html feedback.
+    def _create_label(self, label_name: str) -> str:
+        """Create new label or get information about the existing one.
 
-        :param feedback: feedback that contains email address, subject and
-        html content.
+        Args:
+            label_name: Name of the label to create.
+
+        Returns:
+            ID of the label.
         """
-        # Create message
-        message = MIMEMultipart()
-        message["to"] = formataddr((feedback.student_name, feedback.email))
-        message["from"] = formataddr((self._send_name, self._send_email))
-        message["subject"] = feedback.subject
-        message.attach(MIMEText(feedback.html_body, "html"))
-        raw_message = base64.urlsafe_b64encode(message.as_string().encode("utf-8"))
-        message = {"raw": raw_message.decode("utf-8")}
-
-        # Send message
-        self._gmail.users().messages().send(userId="me", body=message).execute()
-        logger.info(f'Message "{feedback.subject}" was sent to "{feedback.email}".')
-
-    @repeat_request
-    def _get_label_id(self, label_name: str) -> str:
-        """Create new label or get information about existing one.
-
-        :param: label_name: name of label to create.
-        :return: label id.
-        """
+        # Get all existing labels
         all_labels = self._gmail.users().labels().list(userId="me").execute()
-        label_info = next(
+        label_info: dict[str, Any] = next(
             (label for label in all_labels["labels"] if label["name"] == label_name),
             {},
         )
         if label_info:
-            logger.debug(f'Gmail label "{label_info}" already exists.')
+            logger.debug(f'The gmail label "{label_info}" already exists.')
         else:
             body = {
                 "name": label_name,
@@ -419,27 +371,28 @@ class GmailExchanger:
             label_info = (
                 self._gmail.users().labels().create(userId="me", body=body).execute()
             )
-            logger.debug(f'New label "{label_info}" was created.')
-        return label_info["id"]
+            logger.debug(f'The new label "{label_info}" was created.')
+        return str(label_info["id"])
 
     @repeat_request
     def _create_filter(
         self, label_id: str, fetch_keyword: str, fetch_alias: str
     ) -> None:
-        """Create filter for submissions.
+        """Create filter to catch submissions.
 
-        :param label_id: id of label to mark submissions.
-        :param fetch_alias: email where submissions are sent.
-        :param fetch_keyword: all messages containing this keyword in the
-        subject will be marked with the `label_id`.
+        Args:
+            label_id: ID of the label to mark submissions.
+            fetch_keyword: All messages containing this keyword in the subject
+                will be marked with the label which ID is `label_id`.
+            fetch_alias: Email where submissions are sent.
         """
-        # List all filters
+        # Get all existing filters
         filters = self._gmail.users().settings().filters().list(userId="me").execute()
 
         # Find if already exist
         criteria = {"to": fetch_alias, "subject": fetch_keyword}
         action = {"addLabelIds": [label_id], "removeLabelIds": ["INBOX", "SPAM"]}
-        filter_info = next(
+        filter_info: dict[str, Any] = next(
             (
                 gmail_filter
                 for gmail_filter in filters["filter"]
@@ -449,10 +402,135 @@ class GmailExchanger:
             {},
         )
         if filter_info:
-            logger.debug(f"Filter {filter_info} already exists.")
+            logger.debug(f'The filter "{filter_info}" already exists.')
         else:
             body = {"criteria": criteria, "action": action}
             self._gmail.users().settings().filters().create(
                 userId="me", body=body
             ).execute()
-            logger.debug(f"Filter {filter_info} has been created.")
+            logger.debug(f'The filter "{filter_info}" has been created.')
+
+    def _extract_email(self, msg: dict[str, Any]) -> str:
+        """Extract sender's email from the message data.
+
+        Args:
+            msg: Message data.
+
+        Returns:
+            Email.
+        """
+        headers = msg["payload"]["headers"]
+        sender = str(next(x for x in headers if x["name"] == "From")["value"])
+        match = re.search(".*<(?P<email>.*)>.*", sender)
+        if match:
+            sender = match["email"]
+        sender = sender.strip()
+        logger.debug(
+            f'Sender email "{sender}" was extracted '
+            f'from the message with the id "{msg["id"]}".'
+        )
+        return sender
+
+    def _extract_lesson_name(self, msg: dict[str, Any]) -> str:
+        """Extract the lesson name from the message data.
+
+        It is considered that each message with the submission has a subject of
+        the structure "<gmail_keyword> / <lesson_name>".
+
+        Args:
+            msg: Message data.
+
+        Returns:
+            Lesson name.
+        """
+        headers = msg["payload"]["headers"]
+        subject = next(x for x in headers if x["name"] == "Subject")["value"]
+        match = re.search("^(?P<label>.*)/(?P<lesson>.*)$", subject)
+        les_name = match["lesson"].strip() if match else ""
+        logger.debug(
+            f'Lesson name "{les_name}" was extracted '
+            f'from the message with the id "{msg["id"]}".'
+        )
+        return les_name
+
+    def _extract_timestamp(self, msg: dict[str, Any]) -> datetime:
+        """Extract timestamp from message data.
+
+        Extracts the timestamp set by Gmail, not user's one.
+
+        Args:
+            msg: Message data.
+
+        Returns:
+            Timestamp in UTC.
+        """
+        utc_time = datetime.utcfromtimestamp(int(msg["internalDate"]) / 1000).replace(
+            tzinfo=timezone.utc
+        )
+        logger.debug(
+            f'Timestamp "{utc_time.strftime(DATE_FORMAT)}" '
+            f'was extracted from the message with the id "{msg["id"]}".'
+        )
+        return utc_time
+
+    def _extract_attachments(self, msg: dict[str, Any]) -> str:
+        """Extract files from message data.
+
+        Saves all attachments of the message to the specified folder.
+        If the attachment is a ZIP or TAR archive, it will be unpacked.
+
+        Args:
+            msg: Message data.
+
+        Returns:
+            Path to the folder where the attachments were saved.
+        """
+        # Create folder to save
+        path = os.path.join(self._path_downloaded, msg["id"])
+        if os.path.exists(path):
+            logger.warning(
+                f'The folder "{path}" already exists. Its content will be overwritten.'
+            )
+            shutil.rmtree(path)
+        os.makedirs(path)
+
+        # Save attachments
+        for part in msg["payload"].get("parts", {}):
+            if not part["filename"]:
+                continue
+            if "data" in part["body"]:
+                data = part["body"]["data"]
+            else:
+                att_id = part["body"]["attachmentId"]
+                data = self._download_attachment(msg["id"], att_id)
+            file_data = base64.urlsafe_b64decode(data.encode("UTF-8"))
+            file_path = os.path.join(path, part["filename"])
+            with open(file_path, "wb") as f:
+                f.write(file_data)
+                logger.debug(
+                    f'Attachment "{part["filename"]}" of the '
+                    f'message with the id "{msg["id"]}" was saved '
+                    f'to "{file_path}".'
+                )
+
+        # Extract files from archives
+        # If several archives, they will be unpacked and the same
+        # content will be overwritten
+        for file in os.listdir(path):
+            self._unpack_archived_files(os.path.join(path, file))
+        return path
+
+    def _unpack_archived_files(self, path_file: str) -> None:
+        """Unpack archived file to the same directory.
+
+        If the file specified is not an archive, it will be skipped.
+
+        Args:
+            path_file: Path to the archived file.
+        """
+        folder_path = os.path.dirname(path_file)
+        with contextlib.suppress(shutil.ReadError):
+            shutil.unpack_archive(path_file, folder_path)
+            logger.debug(f'File "{path_file}" was unpacked.')
+            os.remove(path_file)
+            logger.debug(f'File "{path_file}" was removed.')

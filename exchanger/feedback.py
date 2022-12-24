@@ -13,11 +13,12 @@ class FeedbackCreator:
     def __init__(
         self, course_name: str, teacher_email: str, picture_links: dict[str, str]
     ) -> None:
-        """Create feedback maker.
+        """Feedback maker.
 
-        :param course_name: name of the course.
-        :param teacher_email: teacher's email.
-        :param picture_links: link to pictures uploaded to a cloud folder.
+        Args:
+            course_name: Name of the course.
+            teacher_email: Teacher's email.
+            picture_links: Links to the pictures uploaded to a cloud folder.
         """
         self._teacher_email = teacher_email
         self._course_name = course_name
@@ -31,24 +32,22 @@ class FeedbackCreator:
     def get_feedback(self, grade_result: GradeResult) -> Feedback:
         """Create feedback after grading.
 
-        :param grade_result: result of grading.
-        :return: feedback.
+        Args:
+            grade_result: Result of the grading.
+
+        Returns:
+            Feedback.
         """
         if grade_result.status is GradeStatus.ERROR_NO_CORRECT_FILES:
             body, subject = self._get_no_correct_files_feedback()
-
         elif grade_result.status is GradeStatus.ERROR_NOTEBOOK_CORRUPTED:
             body, subject = self._get_notebook_corrupted_feedback()
-
         elif grade_result.status is GradeStatus.ERROR_LESSON_IS_ABSENT:
             body, subject = self._get_incorrect_lesson_feedback()
-
         elif grade_result.status is GradeStatus.ERROR_USERNAME_IS_ABSENT:
             body, subject = self._get_absent_username_feedback()
-
         elif grade_result.status is GradeStatus.ERROR_GRADER_FAILED:
             body, subject = self._get_grader_failed_feedback()
-
         elif grade_result.status is GradeStatus.SUCCESS:
             body, subject = self._get_success_feedback(grade_result)
         else:
@@ -59,14 +58,16 @@ class FeedbackCreator:
             python_icon=self._pics["python_logo"],
             course_name=self._course_name,
         )
+
+        # TODO: Use submission id
         logger.info(
-            f'Feedback for the user "{grade_result.student_id}"'
-            f' and lesson "{grade_result.lesson_name}" was created.'
+            f'Feedback for the user "{grade_result.student_id}" '
+            f'and the lesson "{grade_result.lesson_name}" was created.'
         )
 
         student_name = None
         if grade_result.first_name and grade_result.last_name:
-            student_name = f"{grade_result.first_name} " f"{grade_result.last_name}"
+            student_name = f"{grade_result.first_name} {grade_result.last_name}"
         return Feedback(
             subject=subject,
             html_body=content,
@@ -74,14 +75,23 @@ class FeedbackCreator:
             student_name=student_name,
         )
 
-    def _get_success_feedback(self, grade_result: GradeResult) -> (str, str):
+    def _get_success_feedback(self, grade_result: GradeResult) -> tuple[str, str]:
         """Create feedback when the grading process was successful.
 
-        :param grade_result: result of grading.
-        :return: body and subject of the message.
+        Args:
+            grade_result: Result of the grading.
+
+        Returns:
+            The body and subject of the message.
         """
+        if (
+            (not grade_result.lesson_name)
+            or (not grade_result.task_grades)
+            or (not grade_result.first_name)
+        ):
+            raise ValueError("Obligatory values are missed.")
         timestamp = grade_result.timestamp.strftime(DATE_FORMAT)
-        subject = f"{self._course_name} / {grade_result.lesson_name} " f"/ {timestamp}"
+        subject = f"{self._course_name} / {grade_result.lesson_name} / {timestamp}"
         score = sum(task.score for task in grade_result.task_grades)
         max_score = sum(task.max_score for task in grade_result.task_grades)
         body = self._grades_body.format(
@@ -95,10 +105,13 @@ class FeedbackCreator:
         return body, subject
 
     def _get_pic_by_grade(self, grade_sum: float) -> str:
-        """Find picture according to grade.
+        """Find picture according to the grade.
 
-        :param grade_sum: sum of grades for the lesson.
-        :return: picture in string format.
+        Args:
+            grade_sum: Sum of grades for the lesson.
+
+        Returns:
+            Picture in string format.
         """
         if grade_sum <= 20:
             return self._pics["0_20"]
@@ -112,12 +125,13 @@ class FeedbackCreator:
             return self._pics["81_99"]
         if grade_sum == 100:
             return self._pics["100"]
-        raise ValueError(f"Unknown value of grade sum '{grade_sum}'")
+        raise ValueError(f'Unknown value of grade sum "{grade_sum}"')
 
-    def _get_absent_username_feedback(self) -> (str, str):
+    def _get_absent_username_feedback(self) -> tuple[str, str]:
         """Create feedback when the user is unknown.
 
-        :return: body and subject of the message.
+        Returns:
+            The body and subject of the message.
         """
         err_text = """
                    We have received your letter, but we do not know what to 
@@ -132,10 +146,11 @@ class FeedbackCreator:
         )
         return body, subject
 
-    def _get_grader_failed_feedback(self) -> (str, str):
+    def _get_grader_failed_feedback(self) -> tuple[str, str]:
         """Create feedback when the grader failed during submission testing.
 
-        :return: body and subject of the message.
+        Returns:
+            The body and subject of the message.
         """
         err_text = """
                    We received your work, but the grading process ended 
@@ -151,10 +166,11 @@ class FeedbackCreator:
         )
         return body, subject
 
-    def _get_incorrect_lesson_feedback(self) -> (str, str):
+    def _get_incorrect_lesson_feedback(self) -> tuple[str, str]:
         """Create feedback when the lesson name of submission is unknown.
 
-        :return: body and subject of the message.
+        Returns:
+            The body and subject of the message.
         """
         err_text = """
                    We have received your submission, but the lesson name 
@@ -169,10 +185,11 @@ class FeedbackCreator:
         )
         return body, subject
 
-    def _get_no_correct_files_feedback(self) -> (str, str):
+    def _get_no_correct_files_feedback(self) -> tuple[str, str]:
         """Create feedback when the submission does not contain correct files.
 
-        :return: body and subject of the message.
+        Returns:
+            The body and subject of the message.
         """
         err_text = """
                    We have received your submission, but we have not found any 
@@ -187,12 +204,13 @@ class FeedbackCreator:
         )
         return body, subject
 
-    def _get_notebook_corrupted_feedback(self) -> (str, str):
+    def _get_notebook_corrupted_feedback(self) -> tuple[str, str]:
         """Create feedback.
 
         For the case when the content of the notebook does not correspond to the lesson.
 
-        :return: body and subject of the message.
+        Returns:
+            The body and subject of the message.
         """
         err_text = """
                    We have received your submission and found necessary 
@@ -209,10 +227,13 @@ class FeedbackCreator:
         return body, subject
 
     def _get_grade_part(self, grades: list[Task]) -> str:
-        """Get html part of grade info.
+        """Get HTML part of the grade info.
 
-        :param grades: grades and their names.
-        :return: html part in string format.
+        Args:
+            grades: Grades and their names.
+
+        Returns:
+            HTML part in string format.
         """
         grades_part = ""
         for index, task in enumerate(grades):
@@ -232,11 +253,14 @@ class FeedbackCreator:
         return grades_part
 
     def _get_feedback_message(self, score: float, max_score: float) -> str:
-        """Create feedback speech.
+        """Create feedback message.
 
-        :param score: grade score.
-        :param max_score: max grade score.
-        :return: speech text.
+        Args:
+            score: Grade score.
+            max_score: Max grade score.
+
+        Returns:
+            Message.
         """
         if score == 0:
             return """
@@ -258,13 +282,13 @@ class FeedbackCreator:
             """
 
         if score <= 99:
-            return f""" It looks like you have a good understanding of the 
+            return f"""It looks like you have a good understanding of the 
             topic and scored {round(score, 0)} out of 
             {round(max_score, 0)} points. 
-            The result is accepted and you can proceed to the next lesson.<br>
+            The result is accepted, and you can proceed to the next lesson.<br>
             If you want to bring the result to perfection, 
             find your mistakes and send the solution again. 
-            We also recommend you to look at additional materials. 
+            We also recommend you look at additional materials. 
             Perhaps you will discover something new for yourself.
             """
 
@@ -274,17 +298,20 @@ class FeedbackCreator:
             lesson.<br> 
             If you want to understand the topic even better, 
             we advise you to look at additional materials. Perhaps you will 
-            discover something new for yourself. """
+            discover something new for yourself."""
         raise ValueError(f"Unspecified condition for {score}.")
 
     def _load_template(self, name: str) -> str:
         """Load template files.
 
-        :param name: name of template.
-        :return: template content.
+        Args:
+            name: Name of the template.
+
+        Returns:
+            Template content.
         """
         template_path = os.path.join(self._template_path, name)
         with open(template_path, encoding="utf-8") as file:
             content = file.read()
-            logger.debug(f'Feedback template "{name}" was loaded.')
+            logger.debug(f'The feedback template "{name}" was loaded.')
             return content
