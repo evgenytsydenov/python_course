@@ -173,8 +173,7 @@ class GDrivePublisher:
                     f'id "{cloud_obj_id}" was shared with a link '
                     f"to anyone for reading."
                 )
-        link: str = obj_params[link_type]
-        return link
+        return str(obj_params[link_type])
 
     def _update_cloud_obj(self, cloud_obj_id: str, path_local_obj: str) -> None:
         """Update content of the cloud file or folder.
@@ -254,7 +253,7 @@ class GDrivePublisher:
         obj_name = os.path.split(path_local_obj)[-1]
         file_metadata = {"name": obj_name, "parents": [parent_id]}
         media = MediaFileUpload(path_local_obj, resumable=True)
-        file: dict[str, str] = (
+        file = (
             self._gdrive.files()
             .create(body=file_metadata, fields="id", media_body=media)
             .execute()
@@ -263,7 +262,7 @@ class GDrivePublisher:
             f'File "{path_local_obj}" was uploaded to the cloud '
             f'folder with id "{parent_id}".'
         )
-        return file["id"]
+        return str(file["id"])
 
     def _get_local_content(self, path_folder: str) -> dict[str, Any]:
         """Get content of the local folder.
@@ -339,13 +338,11 @@ class GDrivePublisher:
             "mimeType": "application/vnd.google-apps.folder",
             "parents": [parent_obj_id],
         }
-        folder: dict[str, str] = (
-            self._gdrive.files().create(body=meta, fields="id").execute()
-        )
+        folder = self._gdrive.files().create(body=meta, fields="id").execute()
         logger.debug(
             f'The cloud folder "{name}" was created with the id "{folder["id"]}".'
         )
-        return folder["id"]
+        return str(folder["id"])
 
     def _remove_cloud_file(self, obj_id: str) -> None:
         """Remove the file or folder from the cloud.
