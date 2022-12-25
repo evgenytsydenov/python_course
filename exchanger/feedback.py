@@ -28,6 +28,7 @@ class FeedbackCreator:
         self._styles = self._load_template("styles.css")
         self._error_body = self._load_template("error_body.html")
         self._grades_body = self._load_template("grades_body.html")
+        logger.info("Feedback creator started successfully.")
 
     def get_feedback(self, grade_result: GradeResult) -> Feedback:
         """Create feedback after grading.
@@ -59,21 +60,22 @@ class FeedbackCreator:
             course_name=self._course_name,
         )
 
-        # TODO: Use submission id
-        logger.info(
-            f'Feedback for the user "{grade_result.student_id}" '
-            f'and the lesson "{grade_result.lesson_name}" was created.'
-        )
-
         student_name = None
         if grade_result.first_name and grade_result.last_name:
             student_name = f"{grade_result.first_name} {grade_result.last_name}"
-        return Feedback(
+        feedback = Feedback(
+            submission_id=grade_result.submission_id,
             subject=subject,
             html_body=content,
             email=grade_result.email,
             student_name=student_name,
         )
+
+        logger.info(
+            f"Feedback for the submission "
+            f'with the id "{feedback.submission_id}" was created.'
+        )
+        return feedback
 
     def _get_success_feedback(self, grade_result: GradeResult) -> tuple[str, str]:
         """Create feedback when the grading process was successful.
@@ -102,6 +104,7 @@ class FeedbackCreator:
             team_speech=self._get_feedback_message(score, max_score),
             sum_score=round(score, 1),
         )
+        logger.debug("The feedback for the case of successful grading was created.")
         return body, subject
 
     def _get_pic_by_grade(self, grade_sum: float) -> str:
@@ -144,6 +147,7 @@ class FeedbackCreator:
             teacher_email=self._teacher_email,
             image_link=self._pics["unknown_user"],
         )
+        logger.debug("The feedback for the case of absent username was created.")
         return body, subject
 
     def _get_grader_failed_feedback(self) -> tuple[str, str]:
@@ -164,6 +168,7 @@ class FeedbackCreator:
             teacher_email=self._teacher_email,
             image_link=self._pics["grader_failed"],
         )
+        logger.debug("The feedback for the case of grader failing was created.")
         return body, subject
 
     def _get_incorrect_lesson_feedback(self) -> tuple[str, str]:
@@ -183,6 +188,7 @@ class FeedbackCreator:
             teacher_email=self._teacher_email,
             image_link=self._pics["unknown_lesson"],
         )
+        logger.debug("The feedback for the case of incorrect lesson name was created.")
         return body, subject
 
     def _get_no_correct_files_feedback(self) -> tuple[str, str]:
@@ -202,6 +208,7 @@ class FeedbackCreator:
             teacher_email=self._teacher_email,
             image_link=self._pics["unknown_files"],
         )
+        logger.debug("The feedback for the case of no correct files was created.")
         return body, subject
 
     def _get_notebook_corrupted_feedback(self) -> tuple[str, str]:
@@ -224,6 +231,7 @@ class FeedbackCreator:
             teacher_email=self._teacher_email,
             image_link=self._pics["unknown_content"],
         )
+        logger.debug("The feedback for the case of corrupted notebooks was created.")
         return body, subject
 
     def _get_grade_part(self, grades: list[Task]) -> str:
@@ -250,6 +258,7 @@ class FeedbackCreator:
                 width: 14px; height: 14px;" width="14" height="14"></td>
             </tr>
             """
+        logger.debug("Grade part of the feedback was created.")
         return grades_part
 
     def _get_feedback_message(self, score: float, max_score: float) -> str:
@@ -313,5 +322,5 @@ class FeedbackCreator:
         template_path = os.path.join(self._template_path, name)
         with open(template_path, encoding="utf-8") as file:
             content = file.read()
-            logger.debug(f'The feedback template "{name}" was loaded.')
+            logger.debug(f'The feedback template "{template_path}" was loaded.')
             return content

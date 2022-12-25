@@ -47,14 +47,15 @@ class Grader:
         Returns:
             Grading result
         """
-        logger.info(f"Start grading the submission: {submission}.")
+        logger.info(f"Start grading the submission: {submission.submission_id}.")
         grade_result = GradeResult(
+            submission_id=submission.submission_id,
             status=GradeStatus.SUCCESS,
             timestamp=submission.timestamp,
             email=submission.email,
         )
         log_msg_drop = (
-            f'Data of the submission "{submission.submission_id} was '
+            f'Data of the submission "{submission.submission_id}" was '
             f"dropped from the downloaded folder."
         )
 
@@ -74,6 +75,7 @@ class Grader:
         grade_result.student_id = user_info["id"]
         grade_result.first_name = user_info["first_name"]
         grade_result.last_name = user_info["last_name"]
+        logger.debug(f'The submission is from the user "{user_}".')
 
         # Get lesson information
         lesson_info = self._db.get_lesson_info(submission.lesson_name)
@@ -88,6 +90,7 @@ class Grader:
             return grade_result
         lesson_ = lesson_info["name"]
         grade_result.lesson_name = lesson_info["name"]
+        logger.debug(f'The submission is for the lesson "{lesson_}".')
 
         # Check if the file for this lesson exists
         notebook_ = self._get_notebook_name(lesson_)
@@ -98,6 +101,7 @@ class Grader:
             shutil.rmtree(submission.file_path)
             logger.debug(log_msg_drop)
             return grade_result
+        logger.debug(f'The notebook for grading was found at "{notebook_path}".')
 
         # Check if the submission is newer than the existing one
         submitted_path = os.path.join(ROOT_PATH, "submitted", user_, lesson_)
@@ -107,14 +111,16 @@ class Grader:
             shutil.rmtree(submission.file_path)
             logger.debug(log_msg_drop)
             return grade_result
+        logger.debug("This submission is newer than the previous.")
 
         # Check the notebook structure
         if not self._is_notebook_valid(submission.file_path, lesson_, notebook_):
-            logger.info(f'Structure of the notebook "{notebook_}" is corrupted.')
+            logger.info(f'The structure of the notebook "{notebook_}" is corrupted.')
             grade_result.status = GradeStatus.ERROR_NOTEBOOK_CORRUPTED
             shutil.rmtree(submission.file_path)
             logger.debug(log_msg_drop)
             return grade_result
+        logger.debug(f'This notebook "{notebook_path}" is valid.')
 
         # Test the submission
         self._move_checked_files(
@@ -134,6 +140,9 @@ class Grader:
             notebook = f.read()
         self._db.log_submission(
             user_, lesson_, grades, submission.timestamp, feedback, notebook
+        )
+        logger.info(
+            f'The submission with the id "{submission.submission_id}" was graded.'
         )
         return grade_result
 
@@ -158,10 +167,10 @@ class Grader:
         with open(timestamp_path, "w") as file:
             timestamp_str = timestamp.strftime(DATE_FORMAT)
             file.write(timestamp.strftime(DATE_FORMAT))
-        logger.debug(
-            f'The timestamp "{timestamp_str}" was written to "{timestamp_path}".'
-        )
-        logger.info(f'Submission files were moved to "{submitted_path}".')
+            logger.debug(
+                f'The timestamp "{timestamp_str}" was written to "{timestamp_path}".'
+            )
+        logger.debug(f'Submission files were moved to "{submitted_path}".')
 
         # Remove files from downloaded folder
         shutil.rmtree(downloaded_path)
@@ -196,7 +205,7 @@ class Grader:
                 shutil.rmtree(path_)
                 logger.debug(f'The submitted directory "{path_}" was cleared.')
             return False
-        logger.info(
+        logger.debug(
             f'Submission of the user "{user_id}" for '
             f'the lesson "{lesson_name}" was autograded.'
         )
@@ -231,7 +240,7 @@ class Grader:
         fb_path = os.path.join(
             ROOT_PATH, "feedback", user_id, lesson_name, f"{notebook_name}.html"
         )
-        logger.info(
+        logger.debug(
             f'Nbgrader feedback of the user "{user_id}" with the lesson '
             f'"{lesson_name}" was generated and saved to "{fb_path}".'
         )
@@ -264,6 +273,7 @@ class Grader:
                 for cell in all_cells
                 if "nbgrader" in cell["metadata"]
             )
+            logger.debug(f'The file "{notebook_path}" was loaded and parsed.')
         except (JSONDecodeError, UnicodeDecodeError):
             logger.debug(f'The file "{notebook_path}" does not have a json structure.')
             return False
@@ -271,6 +281,7 @@ class Grader:
         # Get valid cells
         with self._nb_grader.gradebook as gb:
             origin_cells = gb.find_notebook(notebook_name, lesson_name).source_cells
+            logger.debug(f'Source cells of the notebook "{notebook_name}" were loaded.')
         true_cells = [cell.name for cell in origin_cells]
         return Counter(nb_cells) == Counter(true_cells)
 
@@ -294,7 +305,7 @@ class Grader:
         # Read the old timestamp and compare with the new one
         with open(path_timestamp) as file:
             time_file = file.readline().strip()
-            logger.debug(f'The previous submission was made at "{time_file}".')
+            logger.debug("The previous submission was loaded.")
         time_old = parser.parse(time_file)
         return timestamp > time_old
 
@@ -316,6 +327,7 @@ class Grader:
         with self._nb_grader.gradebook as gb:
             assignment = gb.find_submission(lesson_name, user_id)
             submission = assignment.notebooks[0]
+            logger.debug("Notebook of the submission was loaded from the database.")
             for grade in submission.grades:
                 grades[grade.name] = (grade.score, grade.max_score)
 
@@ -345,6 +357,7 @@ class Grader:
         path_notebook = os.path.join("source", lesson_name, f"{notebook_name}.ipynb")
         with open(path_notebook, encoding="utf-8") as file:
             notebook = json.load(file)
+            logger.debug(f'The notebook "{notebook_name}" was loaded from the source.')
 
         # Extract grade names
         pat = re.compile(TASK_NAME_PATTERN)
@@ -368,7 +381,7 @@ class Grader:
                 ):
                     task.test_cell = nb_data["grade_id"]
                     tasks.append(task)
-        logger.debug(f'Task names were extracted for the lesson "{lesson_name}".')
+        logger.debug(f'Parsed "{len(tasks)}" tasks from the lesson "{lesson_name}".')
         return tasks
 
     def stop(self) -> None:
@@ -389,7 +402,10 @@ class Grader:
         alembic_cfg.set_main_option(
             "script_location", os.path.join(ROOT_PATH, "alembic")
         )
+
+        # TODO: Check the version of db schema
         alembic.command.upgrade(alembic_cfg, "head")
+        logger.debug("Database schema was actualized by alembic.")
         self._db.refresh_metadata()
 
     def _get_notebook_name(self, lesson_name: str) -> str | None:
@@ -405,4 +421,5 @@ class Grader:
         """
         with self._nb_grader.gradebook as gb:
             names = [n.name for n in gb.find_assignment(lesson_name).notebooks]
+            logger.debug(f'Found {len(names)} notebooks of the lesson "{lesson_name}".')
             return names[0] if names else None

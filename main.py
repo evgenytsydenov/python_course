@@ -30,8 +30,12 @@ def sync_release_folder(gdrive_publisher: GDrivePublisher) -> None:
         os.makedirs(release_path)
     for lesson in os.listdir(release_path):
         gdrive_publisher.sync(os.path.join(release_path, lesson), "release")
+        logger.debug(
+            f'Local release version of the lesson "{lesson}" '
+            f"was synchronized with the cloud one."
+        )
     logger.info(
-        "Local release versions of assignments were synchronized with the cloud ones."
+        "Local release versions of the lessons were synchronized with the cloud ones."
     )
 
 
@@ -44,15 +48,18 @@ def sync_html_sources(gdrive_publisher: GDrivePublisher) -> dict[str, str]:
     Returns:
         Filenames and their links.
     """
-    pic_path = os.path.join(ROOT_PATH, "exchanger", "resources", "pics")
+    pics_path = os.path.join(ROOT_PATH, "exchanger", "resources", "pics")
     links = {}
-    for pic in os.listdir(pic_path):
+    for pic in os.listdir(pics_path):
         image_name = os.path.splitext(pic)[0]
-        link = gdrive_publisher.sync(
-            os.path.join(pic_path, pic), "html_sources", "const_thumbnail"
-        )
+        pic_path = os.path.join(pics_path, pic)
+        link = gdrive_publisher.sync(pic_path, "html_sources", "const_thumbnail")
         links[image_name] = link
-    logger.info("Local html sources were synchronized with the cloud ones.")
+        logger.debug(
+            f'Local HTML source of the pic "{pic}" was '
+            f"synchronized with the cloud ones."
+        )
+    logger.info("Local HTML sources were synchronized with the cloud ones.")
     return links
 
 
@@ -95,7 +102,7 @@ if __name__ == "__main__":
             picture_links=sync_html_sources(publisher),
         )
 
-        logger.info("Start grading process.")
+        logger.info("Start the grading process.")
         while True:
 
             # New submissions will be saved in downloads directory
@@ -127,7 +134,9 @@ if __name__ == "__main__":
             server_port=os.environ["SERVICE_EMAIL_PORT"],
         )
         date = datetime.now(timezone.utc).strftime(DATE_FORMAT)
-        subject = f'Grader of {os.environ["COURSE_NAME"]} failed at {date}'
+        subject = (
+            f'The grader of the course "{os.environ["COURSE_NAME"]}" failed at {date}.'
+        )
         smtp_sender.send(
             destination=os.environ["TEACHER_EMAIL"],
             plain_text=f"{traceback.format_exc()}",

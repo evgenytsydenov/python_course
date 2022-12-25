@@ -120,4 +120,5 @@ class SMTPSender:
             file_attachment.add_header(
                 "Content-Disposition", f'attachment; filename="{file_name}"'
             )
+            logger.debug(f'File "{file_path}" was loaded.')
             return file_attachment

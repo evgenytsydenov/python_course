@@ -30,13 +30,14 @@ def add_lesson(
         raise ValueError("You must specify non-empty lesson name.")
     with nb.gradebook as gb:
         gb.check_course(course_id)
+        logger.debug("Database was checked.")
         gb.add_assignment(name=lesson_name, duedate=due_date, course_id=course_id)
         logger.info(f'The lesson "{lesson_name}" was added to the course "{course_id}"')
 
     path = os.path.join(ROOT_PATH, "source", lesson_name)
     if not os.path.exists(path):
         os.makedirs(path)
-        logger.info(f"Source folder for the lesson '{lesson_name}' was created.")
+        logger.info(f'Source folder for the lesson "{lesson_name}" was created.')
 
 
 if __name__ == "__main__":

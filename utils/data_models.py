@@ -56,6 +56,7 @@ class GradeResult:
     """Grade results parameters.
 
     Attributes:
+        submission_id: ID of the submission.
         status: Status of the grading process.
         timestamp: Timestamp of the submission.
         email: Email of the student.
@@ -66,6 +67,7 @@ class GradeResult:
         task_grades: Grades per each task.
     """
 
+    submission_id: str
     status: GradeStatus
     timestamp: datetime.datetime
     email: str
@@ -81,12 +83,14 @@ class Feedback:
     """Feedback information.
 
     Attributes:
+        submission_id: ID of the submission.
         email: Email to send.
         subject: Subject of the email.
         html_body: Feedback content.
         student_name: Name of the student to insert into the feedback.
     """
 
+    submission_id: str
     email: str
     subject: str
     html_body: str

@@ -160,7 +160,7 @@ class GmailExchanger:
         fetch_keyword: str | None = None,
         fetch_alias: str | None = None,
     ) -> None:
-        """Start up preparations.
+        """Perform start up preparations.
 
         User authorization is performed, and the necessary label is
         created or found among the existing labels.
@@ -202,7 +202,7 @@ class GmailExchanger:
         # Parse each submission
         submissions = []
         for mes_id in message_ids:
-            logger.info(f'Start parsing submission with the id "{mes_id}".')
+            logger.debug(f'Start parsing submission with the id "{mes_id}".')
             msg = self._load_message(mes_id)
             new_submission = Submission(
                 email=self._extract_email(msg),
@@ -213,11 +213,12 @@ class GmailExchanger:
             )
             submissions.append(new_submission)
             logger.info(
-                f'Submission data from the message with the id "{mes_id}" '
-                f"was parsed and saved."
+                f'The data of the submission with the id "{mes_id}" '
+                f"was downloaded and parsed."
             )
         return submissions
 
+    # TODO: Whether to log message requests?
     @slow_api_calls(min_latency=5)  # type: ignore[misc]
     @repeat_request
     def _get_new_messages(self) -> list[str]:
@@ -253,7 +254,10 @@ class GmailExchanger:
 
         # Send message
         self._gmail.users().messages().send(userId="me", body=msg_decoded).execute()
-        logger.info(f'The message "{feedback.subject}" was sent to "{feedback.email}".')
+        logger.debug(f'The message "{feedback.subject} was sent to "{feedback.email}".')
+        logger.info(
+            f'The feedback for the submission "{feedback.submission_id}" was sent.'
+        )
 
     @repeat_request
     def mark_as_completed(self, message_id: str) -> None:
@@ -269,7 +273,8 @@ class GmailExchanger:
         self._gmail.users().messages().modify(
             body=mods, userId="me", id=message_id
         ).execute()
-        logger.info(f'Message with the id "{message_id}" was marked as read.')
+        logger.debug(f'Message with the id "{message_id}" was marked as read.')
+        logger.info(f'Submission with the id "{message_id}" was marked as graded.')
 
     # TODO: Can be used without browser?
     @repeat_request(recreate_resource=False)  # type: ignore[misc]
@@ -285,20 +290,25 @@ class GmailExchanger:
         if os.path.exists(self._path_pickle):
             with open(self._path_pickle, "rb") as token:
                 creds = pickle.load(token)
+                logger.debug("The credentials were loaded.")
         elif not os.path.isdir(os.path.dirname(self._path_pickle)):
             os.makedirs(os.path.dirname(self._path_pickle))
+            logger.debug("The directory for credentials was created.")
 
         # If there are no (valid) credentials available, let the user log in
         if not creds or not creds.valid:
             if creds and creds.expired and creds.refresh_token:
                 creds.refresh(Request())
+                logger.debug("Credentials were refreshed.")
             else:
                 flow = InstalledAppFlow.from_client_config(self._creds, self._scopes)
                 creds = flow.run_local_server(open_browser=False)
+                logger.debug("Credentials were created.")
 
             # Save the credentials for the next run
             with open(self._path_pickle, "wb") as token:
                 pickle.dump(creds, token)
+                logger.debug("Credentials were saved.")
         _gmail = build("gmail", "v1", credentials=creds)
         logger.debug("New Gmail resource was created.")
         return _gmail
@@ -323,6 +333,10 @@ class GmailExchanger:
             .attachments()
             .get(userId="me", messageId=msg_id, id=att_id)
             .execute()
+        )
+        logger.debug(
+            f'Attachment with the id "{att_id}" of the message '
+            f'with the id "{msg_id}" was downloaded.'
         )
         return str(att["data"])
 
@@ -356,6 +370,7 @@ class GmailExchanger:
         """
         # Get all existing labels
         all_labels = self._gmail.users().labels().list(userId="me").execute()
+        logger.debug("All user labels were loaded.")
         label_info: dict[str, Any] = next(
             (label for label in all_labels["labels"] if label["name"] == label_name),
             {},
@@ -388,6 +403,7 @@ class GmailExchanger:
         """
         # Get all existing filters
         filters = self._gmail.users().settings().filters().list(userId="me").execute()
+        logger.debug("All filters of the user was requested.")
 
         # Find if already exist
         criteria = {"to": fetch_alias, "subject": fetch_keyword}
@@ -488,7 +504,7 @@ class GmailExchanger:
         # Create folder to save
         path = os.path.join(self._path_downloaded, msg["id"])
         if os.path.exists(path):
-            logger.warning(
+            logger.debug(
                 f'The folder "{path}" already exists. Its content will be overwritten.'
             )
             shutil.rmtree(path)

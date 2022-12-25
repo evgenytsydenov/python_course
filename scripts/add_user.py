@@ -40,6 +40,7 @@ def clean_string(text: str | None) -> str:
     return "" if text is None else re.sub(pattern, "", text.lower())
 
 
+# TODO: Is it necessary add name into the user id?
 def add_user(
     nbgrader_config: Config,
     email: str,
@@ -60,6 +61,7 @@ def add_user(
     course_id = nbgrader_config.CourseDirectory.course_id
     with nb.gradebook as gb:
         gb.check_course(course_id)
+        logger.debug("Database was checked.")
         emails = {st.email for st in gb.students}
 
         # Check if such email already exists

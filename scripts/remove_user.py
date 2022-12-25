@@ -21,10 +21,16 @@ def remove_user(nbgrader_config: Config, user_id: str) -> None:
     nb = NbGraderAPI(config=nbgrader_config)
     with nb.gradebook as gb:
         gb.remove_student(user_id)
+        logger.debug(
+            f'Data of the user with the id "{user_id}" was removed from the database.'
+        )
         for folder in ["autograded", "feedback", "submitted"]:
             path = os.path.join(ROOT_PATH, folder, user_id)
             if os.path.exists(path):
                 shutil.rmtree(path)
+                logger.debug(
+                    f'Folder "{path}" of the user with the id "{user_id}" was removed.'
+                )
     logger.info(f'User with the id "{user_id}" was removed.')
 
 

@@ -12,7 +12,7 @@ from nbgrader_config import config
 from publisher.engine import GDrivePublisher
 from utils import app_logger
 
-logger = app_logger.get_logger("scripts.release_lesson")
+logger = app_logger.get_logger("scripts.publish_lesson")
 load_dotenv()
 
 
@@ -28,6 +28,7 @@ def generate_assignments(nbgrader_config: Config, lesson_names: Iterable[str]) -
     course_id = nbgrader_config.CourseDirectory.course_id
     with nb.gradebook as gb:
         gb.check_course(course_id)
+        logger.debug("Database was checked.")
 
     for lesson in lesson_names:
         result = nb.generate_assignment(lesson)

@@ -58,11 +58,16 @@ class GDrivePublisher:
         cloud_folder_id = self._find_cloud_objs(query, attributes=["id"])
         if cloud_folder_id:
             self._gd_root_folder_id = cloud_folder_id[0]["id"]
+            logger.debug(
+                f'The root cloud folder "{self.cloud_root_name}" with '
+                f'the id "{self._gd_root_folder_id}" was found.'
+            )
         else:
             raise ValueError(
-                "The root cloud folder for publishing must be pre created "
-                "and shared with the user whose credentials are provided."
+                f'The root cloud folder for publishing "{self.cloud_root_name}" must be'
+                f" pre created and shared with the user whose credentials are provided."
             )
+        logger.info("GDrive publisher started successfully.")
 
     def _create_cloud_path(self, cloud_path: str) -> str:
         """Create all intermediate folders on the way to the cloud path.
@@ -140,8 +145,8 @@ class GDrivePublisher:
             )
             cloud_obj_id = self._upload_local_obj(local_obj, parent_id)
         logger.debug(
-            f'Content of the local object "{local_obj}" was '
-            f'synchronized with the cloud file "{cloud_name}".'
+            f'Content of the local object "{local_obj}" was synchronized with '
+            f'the cloud file "{cloud_name}" with the id "{cloud_obj_id}".'
         )
 
         # Share
@@ -163,13 +168,13 @@ class GDrivePublisher:
             )
             if is_shared:
                 logger.debug(
-                    f'File or folder "{obj_params["name"]}" with '
+                    f'File or folder "{obj_params["name"]}" with the '
                     f'id "{cloud_obj_id}" is already shared.'
                 )
             else:
                 self._share_cloud_obj(cloud_obj_id)
                 logger.debug(
-                    f'File or folder "{obj_params["name"]}" with '
+                    f'File or folder "{obj_params["name"]}" with the '
                     f'id "{cloud_obj_id}" was shared with a link '
                     f"to anyone for reading."
                 )
@@ -191,8 +196,8 @@ class GDrivePublisher:
                     fileId=cloud_obj_id, media_body=media
                 ).execute()
                 logger.debug(
-                    f'File "{cloud_obj_id}" was updated '
-                    f'with content from "{path_local_obj}"'
+                    f'Cloud file with the id "{cloud_obj_id}" was updated '
+                    f'with content from the local path "{path_local_obj}"'
                 )
 
         # If it is a directory
@@ -222,7 +227,7 @@ class GDrivePublisher:
         permissions = {"type": "anyone", "role": "reader"}
         self._gdrive.permissions().create(fileId=obj_id, body=permissions).execute()
         logger.debug(
-            f'Permissions of the file of folder with id "{obj_id}" '
+            f'Permissions of the file of folder with the id "{obj_id}" '
             f'was modified to "{permissions}".'
         )
 
@@ -260,7 +265,7 @@ class GDrivePublisher:
         )
         logger.debug(
             f'File "{path_local_obj}" was uploaded to the cloud '
-            f'folder with id "{parent_id}".'
+            f'folder with the id "{parent_id}".'
         )
         return str(file["id"])
 
@@ -369,6 +374,9 @@ class GDrivePublisher:
         results: dict[str, Any] = (
             self._gdrive.files().list(q=query, fields=fields).execute()
         )
+        logger.debug(
+            "Attributes of the files corresponding to the query were downloaded."
+        )
 
         next_page_token = results.get("nextPageToken")
         while next_page_token:
@@ -377,6 +385,7 @@ class GDrivePublisher:
                 .list(q=query, fields=fields, pageToken=next_page_token)
                 .execute()
             )
+            logger.debug("Loaded the next page of the query results.")
             next_page_token = next_page.get("nextPageToken")
             results["files"] += next_page["files"]
         files: list[dict[str, Any]] = results["files"]
@@ -398,4 +407,5 @@ class GDrivePublisher:
         attrs: dict[str, Any] = (
             self._gdrive.files().get(fileId=file_id, fields=fields).execute()
         )
+        logger.debug(f'Attributes of the file "{file_id}" were loaded.')
         return attrs

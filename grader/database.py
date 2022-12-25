@@ -24,9 +24,10 @@ class DatabaseHandler:
         self._meta = MetaData(bind=self._engine)
         self.refresh_metadata()
 
+    # TODO: Add submission id
     def log_submission(
         self,
-        user_name: str,
+        user_id: str,
         lesson_name: str,
         task_grades: list[Task],
         timestamp: datetime.datetime,
@@ -36,7 +37,7 @@ class DatabaseHandler:
         """Log submission information to the database.
 
         Args:
-            user_name: User id.
+            user_id: User id.
             lesson_name: Lesson name.
             task_grades: Grades per task.
             timestamp: Submission timestamp.
@@ -50,7 +51,7 @@ class DatabaseHandler:
         with self._engine.connect() as connection:
             log_table = self._meta.tables["submission_logs"]
             ins = log_table.insert().values(
-                user_name=user_name,
+                user_name=user_id,
                 submitted_notebook=notebook,
                 lesson_name=lesson_name,
                 task_grades=str(task_grades),
@@ -59,7 +60,7 @@ class DatabaseHandler:
             )
             connection.execute(ins)
             logger.debug(
-                f'Submission of the student "{user_name}" '
+                f'Submission of the student "{user_id}" '
                 f'for the lesson "{lesson_name}" was saved '
                 f'to the "submission_logs" table.'
             )
@@ -80,8 +81,7 @@ class DatabaseHandler:
             result = connection.execute(lesson_sql).first()
             les_info = dict(result) if result else {}
             logger.debug(
-                f'The following information about the lesson "{lesson_name}"'
-                f" was loaded: {les_info}."
+                f'The information about the lesson "{lesson_name}" was loaded.'
             )
             return les_info
 
@@ -102,8 +102,7 @@ class DatabaseHandler:
             result = connection.execute(user_sql).first()
             user_info = dict(result) if result else {}
             logger.debug(
-                f"The following information about the user with "
-                f'email "{email}" was loaded: {user_info}.'
+                f'The information about the user with the email "{email}" was loaded.'
             )
             return user_info
 
@@ -134,9 +133,11 @@ class DatabaseHandler:
         Returns:
             True if empty, False otherwise.
         """
-        return not self._engine.table_names()
+        tables = self._engine.table_names()
+        logger.debug("List of tables from the database was loaded.")
+        return not tables
 
     def refresh_metadata(self) -> None:
         """Refresh metadata when database is modified from the outside."""
         self._meta.reflect()
-        logger.debug("Database metadata was loaded.")
+        logger.debug("Database metadata was reloaded.")
