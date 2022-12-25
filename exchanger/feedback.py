@@ -55,7 +55,7 @@ class FeedbackCreator:
         content = self._template.format(
             styles=self._styles,
             body=body,
-            python_icon=self._pics["python_logo"],
+            course_icon=self._pics["course_icon"],
             course_name=self._course_name,
         )
 
