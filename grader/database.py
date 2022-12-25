@@ -17,7 +17,8 @@ class DatabaseHandler:
     def __init__(self, db_url: str) -> None:
         """Create database handler.
 
-        :param db_url: database url.
+        Args:
+            db_url: Database url.
         """
         self._engine = create_engine(db_url, pool_recycle=3600)
         self._meta = MetaData(bind=self._engine)
@@ -28,18 +29,19 @@ class DatabaseHandler:
         user_name: str,
         lesson_name: str,
         task_grades: list[Task],
-        timestamp: datetime,
+        timestamp: datetime.datetime,
         standard_feedback: bytes,
         notebook: bytes,
     ) -> None:
         """Log submission information to the database.
 
-        :param notebook: submitted notebook.
-        :param standard_feedback: standard feedback.
-        :param user_name: user id.
-        :param lesson_name: lesson name.
-        :param task_grades: grades per task.
-        :param timestamp: submission timestamp.
+        Args:
+            user_name: User id.
+            lesson_name: Lesson name.
+            task_grades: Grades per task.
+            timestamp: Submission timestamp.
+            standard_feedback: Standard feedback.
+            notebook: Submitted notebook.
         """
         # For the first start
         if "submission_logs" not in self._meta.tables:
@@ -57,16 +59,19 @@ class DatabaseHandler:
             )
             connection.execute(ins)
             logger.debug(
-                f'Submission of student "{user_name}" '
-                f'for lesson "{lesson_name}" was saved '
+                f'Submission of the student "{user_name}" '
+                f'for the lesson "{lesson_name}" was saved '
                 f'to the "submission_logs" table.'
             )
 
     def get_lesson_info(self, lesson_name: str) -> dict[str, Any]:
-        """Get information about lesson.
+        """Get information about the lesson.
 
-        :param lesson_name: lesson name.
-        :return: information about the lesson.
+        Args:
+            lesson_name: Lesson name.
+
+        Returns:
+            Information about the lesson.
         """
         with self._engine.connect() as connection:
             les_tab = self._meta.tables["assignment"]
@@ -75,17 +80,20 @@ class DatabaseHandler:
             result = connection.execute(lesson_sql).first()
             les_info = dict(result) if result else {}
             logger.debug(
-                f"The following information about lesson with "
-                f'name "{lesson_name}" was loaded: {les_info}.'
+                f'The following information about the lesson "{lesson_name}"'
+                f" was loaded: {les_info}."
             )
             return les_info
 
     def get_user_info(self, email: str) -> dict[str, Any]:
-        """Get information about user by email.
+        """Get information about the user by email.
 
-        :param email: user's email.
-        :return: dict with first name, last name, and email if the user
-        exists, empty dict otherwise.
+        Args:
+            email: User's email.
+
+        Returns:
+            Dict with first name, last name, and email if the user exists,
+                empty dict otherwise.
         """
         with self._engine.connect() as connection:
             users_table = self._meta.tables["student"]
@@ -94,7 +102,7 @@ class DatabaseHandler:
             result = connection.execute(user_sql).first()
             user_info = dict(result) if result else {}
             logger.debug(
-                f"The following information about user with "
+                f"The following information about the user with "
                 f'email "{email}" was loaded: {user_info}.'
             )
             return user_info
@@ -112,7 +120,7 @@ class DatabaseHandler:
             Column("feedback_standard", LargeBinary(length=1e9), nullable=False),
         )
         new_table.create(bind=self._engine)
-        logger.debug('Table "submission_logs" was created.')
+        logger.debug('The table "submission_logs" was created.')
         self.refresh_metadata()
 
     def stop_db_connection(self) -> None:
@@ -121,13 +129,14 @@ class DatabaseHandler:
         logger.debug("Database engine was disposed.")
 
     def is_db_empty(self) -> bool:
-        """Check if database empty.
+        """Check if the database empty.
 
-        :return: True if empty, False otherwise.
+        Returns:
+            True if empty, False otherwise.
         """
         return not self._engine.table_names()
 
     def refresh_metadata(self) -> None:
         """Refresh metadata when database is modified from the outside."""
         self._meta.reflect()
-        logger.debug("Database metadata loaded.")
+        logger.debug("Database metadata was loaded.")

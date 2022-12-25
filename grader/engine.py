@@ -7,8 +7,8 @@ from datetime import datetime
 from json import JSONDecodeError
 
 from dateutil import parser
-from nbgrader.apps import NbGraderAPI
-from traitlets.config import Config
+from nbgrader.apps import NbGraderAPI  # type: ignore[import]
+from traitlets.config import Config  # type: ignore[import]
 
 import alembic.command
 import alembic.config
@@ -26,7 +26,8 @@ class Grader:
     def __init__(self, grader_config: Config) -> None:
         """Create grader.
 
-        :param grader_config: grader configuration.
+        Args:
+            grader_config: Grader configuration.
         """
         self._config = grader_config
         self._db = DatabaseHandler(self._config.CourseDirectory.db_url)
@@ -37,11 +38,14 @@ class Grader:
     def grade_submission(self, submission: Submission) -> GradeResult:
         """Grade submission.
 
-        At first, this will check submission parameters (user id, lesson name,
-        etc). If they are correct, the submission will be graded.
+        This will check submission parameters (user id, lesson name, etc.). If they are
+        correct, the submission will be graded.
 
-        :param submission: submission.
-        :return: grading result.
+        Args:
+            submission: Submission.
+
+        Returns:
+            Grading result
         """
         logger.info(f"Start grading the submission: {submission}.")
         grade_result = GradeResult(
@@ -49,20 +53,21 @@ class Grader:
             timestamp=submission.timestamp,
             email=submission.email,
         )
+        log_msg_drop = (
+            f'Data of the submission "{submission.submission_id} was '
+            f"dropped from the downloaded folder."
+        )
 
         # Get user information
         user_info = self._db.get_user_info(submission.email)
         if not user_info:
             logger.info(
-                f"The information about user with "
-                f'email "{submission.email}" was not found.'
+                f"The information about the user with "
+                f'the email "{submission.email}" was not found.'
             )
             grade_result.status = GradeStatus.ERROR_USERNAME_IS_ABSENT
             shutil.rmtree(submission.file_path)
-            logger.debug(
-                f'Data of submission "{submission.submission_id} was '
-                f'dropped from downloaded folder."'
-            )
+            logger.debug(log_msg_drop)
             return grade_result
         user_ = user_info["id"]
         grade_result.email = user_info["email"]
@@ -74,19 +79,15 @@ class Grader:
         lesson_info = self._db.get_lesson_info(submission.lesson_name)
         if not lesson_info:
             logger.info(
-                f"The information about lesson with name "
+                f"The information about the lesson with the name "
                 f'"{submission.lesson_name}" was not found.'
             )
             grade_result.status = GradeStatus.ERROR_LESSON_IS_ABSENT
             shutil.rmtree(submission.file_path)
-            logger.debug(
-                f'Data of submission "{submission.submission_id} was '
-                f'dropped from downloaded folder."'
-            )
+            logger.debug(log_msg_drop)
             return grade_result
         lesson_ = lesson_info["name"]
         grade_result.lesson_name = lesson_info["name"]
-        grade_result.due_date = lesson_info["duedate"]
 
         # Check if the file for this lesson exists
         downloaded_path = os.path.join(submission.file_path, f"{lesson_}.ipynb")
@@ -94,10 +95,7 @@ class Grader:
             logger.info("The notebook for grading was not found among submitted files.")
             grade_result.status = GradeStatus.ERROR_NO_CORRECT_FILES
             shutil.rmtree(submission.file_path)
-            logger.debug(
-                f'Data of submission "{submission.submission_id} was '
-                f'dropped from downloaded folder."'
-            )
+            logger.debug(log_msg_drop)
             return grade_result
 
         # Check if the submission is newer than the existing one
@@ -106,23 +104,15 @@ class Grader:
             logger.info("The submission is not newer than the existing one. Skip it.")
             grade_result.status = GradeStatus.SKIPPED
             shutil.rmtree(submission.file_path)
-            logger.debug(
-                f'Data of submission "{submission.submission_id} was '
-                f'dropped from downloaded folder."'
-            )
+            logger.debug(log_msg_drop)
             return grade_result
 
         # Check the notebook structure
         if not self._is_notebook_valid(downloaded_path, lesson_):
-            logger.info(
-                f"Structure of the notebook " f'"{downloaded_path}" is corrupted.'
-            )
+            logger.info(f'Structure of the notebook "{downloaded_path}" is corrupted.')
             grade_result.status = GradeStatus.ERROR_NOTEBOOK_CORRUPTED
             shutil.rmtree(submission.file_path)
-            logger.debug(
-                f'Data of submission "{submission.submission_id} was '
-                f'dropped from downloaded folder."'
-            )
+            logger.debug(log_msg_drop)
             return grade_result
 
         # Test the submission
@@ -151,14 +141,15 @@ class Grader:
     ) -> None:
         """Move files from downloaded folder to submitted folder.
 
-        :param downloaded_path: path to files in downloaded folder.
-        :param submitted_path: path to files in submitted folder.
-        :param timestamp: submission timestamp.
+        Args:
+            downloaded_path: Path to files in the downloaded folder.
+            submitted_path: Path to files in the submitted folder.
+            timestamp: Submission timestamp.
         """
         # Copy all files
         if os.path.exists(submitted_path):
             shutil.rmtree(submitted_path)
-            logger.info(f'Submitted directory "{submitted_path}" was cleared.')
+            logger.debug(f'The submitted directory "{submitted_path}" was cleared.')
         shutil.copytree(downloaded_path, submitted_path)
 
         # Add timestamp information
@@ -167,24 +158,26 @@ class Grader:
             timestamp_str = timestamp.strftime(DATE_FORMAT)
             file.write(timestamp.strftime(DATE_FORMAT))
         logger.debug(
-            f'Submission timestamp "{timestamp_str}" was written '
-            f'to "{timestamp_path}".'
+            f'The timestamp "{timestamp_str}" was written to "{timestamp_path}".'
         )
         logger.info(f'Submission files were moved to "{submitted_path}".')
 
         # Remove files from downloaded folder
         shutil.rmtree(downloaded_path)
-        logger.debug(f"Downloaded files were removed " f'from "{downloaded_path}".')
+        logger.debug(f'Downloaded files were removed from "{downloaded_path}".')
 
     def _autograde(self, lesson_name: str, user_id: str) -> bool:
         """Run autograding process.
 
-        :param lesson_name: name of the lesson.
-        :param user_id: user id.
-        :return: if the autograding was successful.
+        Args:
+            lesson_name: Name of the lesson.
+            user_id: User ID.
+
+        Returns:
+            Whether the autograding was successful.
         """
         logger.debug(
-            f'Start autograding of user "{user_id}" for lesson "{lesson_name}.'
+            f'Start autograding of the user "{user_id}" for the lesson "{lesson_name}.'
         )
         status = self._nb_grader.autograde(lesson_name, user_id, create=False)
         logs = re.sub(r"\[\w+\] ", "", status["log"]).replace("\n", ". ")
@@ -194,60 +187,64 @@ class Grader:
             with self._nb_grader.gradebook as gb:
                 gb.remove_submission(lesson_name, user_id)
                 logger.debug(
-                    f'Submission of user "{user_id}" for lesson '
+                    f'The submission of the user "{user_id}" for the lesson '
                     f'"{lesson_name}" was removed from the database.'
                 )
             path_ = os.path.join(ROOT_PATH, "submitted", user_id, lesson_name)
             if os.path.exists(path_):
                 shutil.rmtree(path_)
-                logger.debug(f'Submitted directory "{path_}" was cleared.')
+                logger.debug(f'The submitted directory "{path_}" was cleared.')
             return False
         logger.info(
-            f'Submission of user "{user_id}" for '
-            f'lesson "{lesson_name}" was autograded.'
+            f'Submission of the user "{user_id}" for '
+            f'the lesson "{lesson_name}" was autograded.'
         )
         return True
 
     def _create_nbgrader_feedback(self, lesson_name: str, user_id: str) -> bytes:
         """Generate standard nbgrader feedback.
 
-        :param lesson_name: name of the lesson.
-        :param user_id: user id.
-        :return: feedback content.
+        Args:
+            lesson_name: Name of the lesson.
+            user_id: User ID.
+
+        Returns:
+            Feedback content.
         """
         logger.debug(
-            f"Start generating nbgrader feedback of user "
-            f"{user_id} with lesson {lesson_name}."
+            f"Start generating nbgrader feedback of the user "
+            f"{user_id} with the lesson {lesson_name}."
         )
         status = self._nb_grader.generate_feedback(lesson_name, user_id)
         logs = re.sub(r"\[\w+\] ", "", status["log"]).replace("\n", ". ")
         if not status["success"]:
             logger.error(f"Grader output: {logs}")
             raise RuntimeError(
-                f"Generating nbgrader feedback of user "
-                f"{user_id} with lesson {lesson_name} failed."
+                f"Generating nbgrader feedback of the user "
+                f"{user_id} with the lesson {lesson_name} failed."
             )
         logger.debug(f"Grader output: {logs}")
         fb_path = os.path.join(
             ROOT_PATH, "feedback", user_id, lesson_name, f"{lesson_name}.html"
         )
         logger.info(
-            f'Nbgrader feedback of user "{user_id}" with lesson '
+            f'Nbgrader feedback of the user "{user_id}" with the lesson '
             f'"{lesson_name}" was generated and saved to "{fb_path}".'
         )
         with open(fb_path, "rb") as file:
             return file.read()
 
     def _is_notebook_valid(self, path: str, lesson_name: str) -> bool:
-        """Validate notebook.
+        """Validate the notebook.
 
-        Notebook is not valid when it does not contain solution cells.
+        Args:
+            path: Path to the notebook.
+            lesson_name: Name of the lesson.
 
-        :param path: path to notebook.
-        :param lesson_name: name of lesson.
-        :return: True if notebook is valid, False otherwise.
+        Returns:
+            True if the notebook is valid, False otherwise.
         """
-        nb_cells = []
+        nb_cells: list[str] = []
         try:
             # Get all cells
             with open(path, encoding="utf-8") as file:
@@ -260,7 +257,7 @@ class Grader:
                 if "nbgrader" in cell["metadata"]
             )
         except (JSONDecodeError, UnicodeDecodeError):
-            logger.debug(f'File "{path}" does not have a json structure.')
+            logger.debug(f'The file "{path}" does not have a json structure.')
             return False
 
         # Get valid cells
@@ -272,9 +269,12 @@ class Grader:
     def _is_submission_newer(self, submitted_path: str, timestamp: datetime) -> bool:
         """Check if the submission is newer than the existing one.
 
-        :param timestamp: timestamp of the new submission.
-        :param submitted_path: path to the existing submission.
-        :return: True if the submission is new, False otherwise.
+        Args:
+            submitted_path: Path to the existing submission.
+            timestamp: Timestamp of the new submission.
+
+        Returns:
+            True if the submission is new, False otherwise.
         """
         path_timestamp = os.path.join(submitted_path, "timestamp.txt")
 
@@ -285,17 +285,20 @@ class Grader:
 
         # Read the old timestamp and compare with the new one
         with open(path_timestamp) as file:
-            time_old = file.readline().strip()
-            logger.debug(f'The previous submission was made "{time_old}".')
-        time_old = parser.parse(time_old)
+            time_file = file.readline().strip()
+            logger.debug(f'The previous submission was made at "{time_file}".')
+        time_old = parser.parse(time_file)
         return timestamp > time_old
 
     def _get_submission_grades(self, lesson_name: str, user_id: str) -> list[Task]:
-        """Get grades for autograded submission.
+        """Get grades for the autograded submission.
 
-        :param lesson_name: name of the lesson.
-        :param user_id: user id.
-        :return: grades per each task.
+        Args:
+            lesson_name: Name of the lesson.
+            user_id: User ID.
+
+        Returns:
+            Grades per each task.
         """
         # Get grades
         grades = {}
@@ -310,7 +313,8 @@ class Grader:
         for task in tasks:
             task.score, task.max_score = grades[task.test_cell]
         logger.debug(
-            f'Grades of user "{user_id}" for lesson "{lesson_name}" were extracted.'
+            f'Grades of the user "{user_id}" '
+            f'for the lesson "{lesson_name}" were extracted.'
         )
         return tasks
 
@@ -319,8 +323,11 @@ class Grader:
 
         It is assumed that only one test cell can be in each task.
 
-        :param lesson_name: name of lesson.
-        :return: tasks in the right order.
+        Args:
+            lesson_name: Name of the lesson.
+
+        Returns:
+            Tasks in the right order.
         """
         # Load original assignment
         path_notebook = os.path.join("source", lesson_name, f"{lesson_name}.ipynb")
@@ -329,7 +336,7 @@ class Grader:
 
         # Extract grade names
         pat = re.compile(TASK_NAME_PATTERN)
-        tasks = []
+        tasks: list[Task] = []
         task = None
         for cell in notebook["cells"]:
             nb_data = cell["metadata"].get("nbgrader")
@@ -342,10 +349,14 @@ class Grader:
                     continue
 
                 # If it is a test cell
-                if cell["cell_type"] == "code" and nb_data["grade"]:
+                if (
+                    cell["cell_type"] == "code"
+                    and nb_data["grade"]
+                    and task is not None
+                ):
                     task.test_cell = nb_data["grade_id"]
                     tasks.append(task)
-        logger.debug(f'Task names were extracted for lesson "{lesson_name}".')
+        logger.debug(f'Task names were extracted for the lesson "{lesson_name}".')
         return tasks
 
     def stop(self) -> None:
