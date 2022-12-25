@@ -22,7 +22,8 @@ logger = get_logger(__name__)
 def sync_release_folder(gdrive_publisher: GDrivePublisher) -> None:
     """Sync local releases with the cloud ones.
 
-    :param gdrive_publisher: publisher instance.
+    Args:
+        gdrive_publisher: Publisher instance.
     """
     release_path = os.path.join(ROOT_PATH, "release")
     if not os.path.exists(release_path):
@@ -35,10 +36,13 @@ def sync_release_folder(gdrive_publisher: GDrivePublisher) -> None:
 
 
 def sync_html_sources(gdrive_publisher: GDrivePublisher) -> dict[str, str]:
-    """Sync html source files with the cloud ones.
+    """Sync HTML source files with the cloud ones.
 
-    :param gdrive_publisher: publisher instance.
-    :return: filenames and their links.
+    Args:
+        gdrive_publisher: Publisher instance.
+
+    Returns:
+        Filenames and their links.
     """
     pic_path = os.path.join(ROOT_PATH, "exchanger", "resources", "pics")
     links = {}
