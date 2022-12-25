@@ -90,8 +90,9 @@ class Grader:
         grade_result.lesson_name = lesson_info["name"]
 
         # Check if the file for this lesson exists
-        downloaded_path = os.path.join(submission.file_path, f"{lesson_}.ipynb")
-        if not os.path.exists(downloaded_path):
+        notebook_ = self._get_notebook_name(lesson_)
+        notebook_path = os.path.join(submission.file_path, f"{notebook_}.ipynb")
+        if (notebook_ is None) or (not os.path.exists(notebook_path)):
             logger.info("The notebook for grading was not found among submitted files.")
             grade_result.status = GradeStatus.ERROR_NO_CORRECT_FILES
             shutil.rmtree(submission.file_path)
@@ -108,8 +109,8 @@ class Grader:
             return grade_result
 
         # Check the notebook structure
-        if not self._is_notebook_valid(downloaded_path, lesson_):
-            logger.info(f'Structure of the notebook "{downloaded_path}" is corrupted.')
+        if not self._is_notebook_valid(submission.file_path, lesson_, notebook_):
+            logger.info(f'Structure of the notebook "{notebook_}" is corrupted.')
             grade_result.status = GradeStatus.ERROR_NOTEBOOK_CORRUPTED
             shutil.rmtree(submission.file_path)
             logger.debug(log_msg_drop)
@@ -122,14 +123,14 @@ class Grader:
         if not self._autograde(lesson_, user_):
             grade_result.status = GradeStatus.ERROR_GRADER_FAILED
             return grade_result
-        grades = self._get_submission_grades(lesson_, user_)
+        grades = self._get_submission_grades(lesson_, notebook_, user_)
         grade_result.task_grades = grades
 
         # Generate standard feedback
-        feedback = self._create_nbgrader_feedback(lesson_, user_)
+        feedback = self._create_nbgrader_feedback(lesson_, notebook_, user_)
 
         # Save submission info to database
-        with open(os.path.join(submitted_path, f"{lesson_}.ipynb"), "rb") as f:
+        with open(os.path.join(submitted_path, f"{notebook_}.ipynb"), "rb") as f:
             notebook = f.read()
         self._db.log_submission(
             user_, lesson_, grades, submission.timestamp, feedback, notebook
@@ -201,11 +202,14 @@ class Grader:
         )
         return True
 
-    def _create_nbgrader_feedback(self, lesson_name: str, user_id: str) -> bytes:
+    def _create_nbgrader_feedback(
+        self, lesson_name: str, notebook_name: str, user_id: str
+    ) -> bytes:
         """Generate standard nbgrader feedback.
 
         Args:
             lesson_name: Name of the lesson.
+            notebook_name: Name of the notebook.
             user_id: User ID.
 
         Returns:
@@ -225,7 +229,7 @@ class Grader:
             )
         logger.debug(f"Grader output: {logs}")
         fb_path = os.path.join(
-            ROOT_PATH, "feedback", user_id, lesson_name, f"{lesson_name}.html"
+            ROOT_PATH, "feedback", user_id, lesson_name, f"{notebook_name}.html"
         )
         logger.info(
             f'Nbgrader feedback of the user "{user_id}" with the lesson '
@@ -234,20 +238,24 @@ class Grader:
         with open(fb_path, "rb") as file:
             return file.read()
 
-    def _is_notebook_valid(self, path: str, lesson_name: str) -> bool:
+    def _is_notebook_valid(
+        self, path: str, lesson_name: str, notebook_name: str
+    ) -> bool:
         """Validate the notebook.
 
         Args:
             path: Path to the notebook.
             lesson_name: Name of the lesson.
+            notebook_name: Name of the notebook.
 
         Returns:
             True if the notebook is valid, False otherwise.
         """
         nb_cells: list[str] = []
+        notebook_path = os.path.join(path, f"{notebook_name}.ipynb")
         try:
             # Get all cells
-            with open(path, encoding="utf-8") as file:
+            with open(notebook_path, encoding="utf-8") as file:
                 all_cells = json.load(file).get("cells", [])
 
             # Get only nbgrader cells
@@ -257,12 +265,12 @@ class Grader:
                 if "nbgrader" in cell["metadata"]
             )
         except (JSONDecodeError, UnicodeDecodeError):
-            logger.debug(f'The file "{path}" does not have a json structure.')
+            logger.debug(f'The file "{notebook_path}" does not have a json structure.')
             return False
 
         # Get valid cells
         with self._nb_grader.gradebook as gb:
-            origin_cells = gb.find_notebook(lesson_name, lesson_name).source_cells
+            origin_cells = gb.find_notebook(notebook_name, lesson_name).source_cells
         true_cells = [cell.name for cell in origin_cells]
         return Counter(nb_cells) == Counter(true_cells)
 
@@ -290,11 +298,14 @@ class Grader:
         time_old = parser.parse(time_file)
         return timestamp > time_old
 
-    def _get_submission_grades(self, lesson_name: str, user_id: str) -> list[Task]:
+    def _get_submission_grades(
+        self, lesson_name: str, notebook_name: str, user_id: str
+    ) -> list[Task]:
         """Get grades for the autograded submission.
 
         Args:
             lesson_name: Name of the lesson.
+            notebook_name: Name of the notebook.
             user_id: User ID.
 
         Returns:
@@ -309,7 +320,7 @@ class Grader:
                 grades[grade.name] = (grade.score, grade.max_score)
 
         # Get tasks description
-        tasks = self._get_lesson_tasks(lesson_name)
+        tasks = self._get_lesson_tasks(lesson_name, notebook_name)
         for task in tasks:
             task.score, task.max_score = grades[task.test_cell]
         logger.debug(
@@ -318,19 +329,20 @@ class Grader:
         )
         return tasks
 
-    def _get_lesson_tasks(self, lesson_name: str) -> list[Task]:
+    def _get_lesson_tasks(self, lesson_name: str, notebook_name: str) -> list[Task]:
         """Get task description for each test cell.
 
         It is assumed that only one test cell can be in each task.
 
         Args:
             lesson_name: Name of the lesson.
+            notebook_name: Name of the notebook.
 
         Returns:
             Tasks in the right order.
         """
         # Load original assignment
-        path_notebook = os.path.join("source", lesson_name, f"{lesson_name}.ipynb")
+        path_notebook = os.path.join("source", lesson_name, f"{notebook_name}.ipynb")
         with open(path_notebook, encoding="utf-8") as file:
             notebook = json.load(file)
 
@@ -379,3 +391,18 @@ class Grader:
         )
         alembic.command.upgrade(alembic_cfg, "head")
         self._db.refresh_metadata()
+
+    def _get_notebook_name(self, lesson_name: str) -> str | None:
+        """Get name of the notebook for particular lesson.
+
+        It is assumed there is only one notebook per lesson.
+
+        Args:
+            lesson_name: Name of the lesson.
+
+        Returns:
+            Notebook name.
+        """
+        with self._nb_grader.gradebook as gb:
+            names = [n.name for n in gb.find_assignment(lesson_name).notebooks]
+            return names[0] if names else None
