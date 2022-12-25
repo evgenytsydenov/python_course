@@ -7,7 +7,7 @@ Create Date: 2021-09-11 04:08:38.778281+00:00
 """  # noqa D400, D415
 import sqlalchemy as sa
 
-from alembic import op
+from alembic import op  # type[attr-defined]
 
 # revision identifiers
 # used by alembic

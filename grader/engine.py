@@ -7,8 +7,8 @@ from datetime import datetime
 from json import JSONDecodeError
 
 from dateutil import parser
-from nbgrader.apps import NbGraderAPI  # type: ignore[import]
-from traitlets.config import Config  # type: ignore[import]
+from nbgrader.apps import NbGraderAPI
+from traitlets.config import Config
 
 import alembic.command
 import alembic.config

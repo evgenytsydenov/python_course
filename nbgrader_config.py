@@ -1,6 +1,6 @@
 import os
 
-import traitlets.config  # type: ignore[import]
+import traitlets.config
 from dotenv import load_dotenv
 
 from definitions import DATE_FORMAT, DB_URL, LOG_FORMAT_INFO, ROOT_PATH

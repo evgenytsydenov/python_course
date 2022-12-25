@@ -1,9 +1,9 @@
 import re
 import uuid
 
-from email_validator import EmailNotValidError, validate_email  # type: ignore[import]
-from nbgrader.apps import NbGraderAPI  # type: ignore[import]
-from traitlets.config import Config  # type: ignore[import]
+from email_validator import EmailNotValidError, validate_email
+from nbgrader.apps import NbGraderAPI
+from traitlets.config import Config
 
 from nbgrader_config import config
 from utils import app_logger

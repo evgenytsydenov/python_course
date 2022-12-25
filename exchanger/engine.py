@@ -14,11 +14,11 @@ from functools import partial, wraps
 from typing import Any, Callable
 
 import requests
-from google.auth.exceptions import TransportError  # type: ignore[import]
-from google.auth.transport.requests import Request  # type: ignore[import]
-from google_auth_oauthlib.flow import InstalledAppFlow  # type: ignore[import]
-from googleapiclient.discovery import Resource, build  # type: ignore[import]
-from googleapiclient.errors import HttpError  # type: ignore[import]
+from google.auth.exceptions import TransportError
+from google.auth.transport.requests import Request
+from google_auth_oauthlib.flow import InstalledAppFlow
+from googleapiclient.discovery import Resource, build
+from googleapiclient.errors import HttpError
 
 from definitions import DATE_FORMAT, ROOT_PATH
 from utils.app_logger import get_logger

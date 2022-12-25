@@ -4,9 +4,9 @@ import os
 import shutil
 from typing import Any, Iterable
 
-from google.oauth2 import service_account  # type: ignore[import]
-from googleapiclient.discovery import Resource, build  # type: ignore[import]
-from googleapiclient.http import MediaFileUpload  # type: ignore[import]
+from google.oauth2 import service_account
+from googleapiclient.discovery import Resource, build
+from googleapiclient.http import MediaFileUpload
 
 from definitions import PUBLISH_IGNORE
 from utils.app_logger import get_logger

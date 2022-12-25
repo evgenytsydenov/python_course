@@ -1,8 +1,8 @@
 import os
 import shutil
 
-from nbgrader.apps import NbGraderAPI  # type: ignore[import]
-from traitlets.config import Config  # type: ignore[import]
+from nbgrader.apps import NbGraderAPI
+from traitlets.config import Config
 
 from definitions import ROOT_PATH
 from nbgrader_config import config
