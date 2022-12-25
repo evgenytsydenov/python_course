@@ -8,7 +8,7 @@ from utils.smtp_sender import SMTPSender
 load_dotenv()
 
 if __name__ == "__main__":
-    lessons = []
+    lessons: list[str] = []
     if not lessons:
         lessons = os.listdir(os.path.join(ROOT_PATH, "release"))
 

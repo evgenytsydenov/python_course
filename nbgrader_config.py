@@ -9,7 +9,7 @@ load_dotenv()
 
 try:
     # This is used when Jupyter starts or Nbgrader is called from console
-    config = get_config()
+    config = get_config()  # type: ignore[name-defined]
 except NameError:
     # This is used when Nbgrader is called from scripts
     config = traitlets.config.get_config()

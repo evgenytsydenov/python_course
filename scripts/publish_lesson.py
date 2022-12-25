@@ -4,8 +4,8 @@ import re
 from typing import Iterable
 
 from dotenv import load_dotenv
-from nbgrader.apps import NbGraderAPI
-from traitlets.config import Config
+from nbgrader.apps import NbGraderAPI  # type: ignore[import]
+from traitlets.config import Config  # type: ignore[import]
 
 from definitions import ROOT_PATH
 from nbgrader_config import config
@@ -16,19 +16,13 @@ logger = app_logger.get_logger("scripts.release_lesson")
 load_dotenv()
 
 
-def generate_assignments(
-    nbgrader_config: Config, lesson_names: Iterable[str] | str | None = None
-) -> None:
+def generate_assignments(nbgrader_config: Config, lesson_names: Iterable[str]) -> None:
     """Generate student version of assignments.
 
-    :param nbgrader_config: nbgrader config.
-    :param lesson_names: names of lessons to generate or None for all lessons.
+    Args:
+        nbgrader_config: Nbgrader config.
+        lesson_names: Names of the lessons to generate.
     """
-    if lesson_names is None:
-        lesson_names = os.listdir(os.path.join(ROOT_PATH, "source"))
-    elif isinstance(lesson_names, str):
-        lesson_names = [lesson_names]
-
     # Check database
     nb = NbGraderAPI(config=nbgrader_config)
     course_id = nbgrader_config.CourseDirectory.course_id
@@ -43,7 +37,7 @@ def generate_assignments(
             logger.info(f'Lesson "{lesson}" was generated.')
         else:
             logger.error(f"Grader output: {logs}")
-            raise SystemError(f"Generating of '{lesson}' failed.")
+            raise RuntimeError(f'Generating of the lesson "{lesson}" failed.')
 
 
 if __name__ == "__main__":
@@ -51,16 +45,18 @@ if __name__ == "__main__":
     lessons = ["Loops"]
 
     # Generate student version
+    if lessons is None:
+        lessons = os.listdir(os.path.join(ROOT_PATH, "source"))
+    elif isinstance(lessons, str):
+        lesson_names = [lessons]
     generate_assignments(config, lessons)
 
-    # Publisher
+    # Publish
     publisher = GDrivePublisher(
         creds=json.loads(os.environ["GDRIVE_CREDS"]),
         cloud_root_name=os.environ["GDRIVE_PUBLISH_FOLDER"],
     )
     publisher.connect()
-
-    # Publish
     for lesson in lessons:
         path = os.path.join(ROOT_PATH, "release", lesson)
         publisher.sync(path, "release")

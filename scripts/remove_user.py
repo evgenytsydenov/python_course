@@ -1,8 +1,8 @@
 import os
 import shutil
 
-from nbgrader.apps import NbGraderAPI
-from traitlets.config import Config
+from nbgrader.apps import NbGraderAPI  # type: ignore[import]
+from traitlets.config import Config  # type: ignore[import]
 
 from definitions import ROOT_PATH
 from nbgrader_config import config
@@ -14,8 +14,9 @@ logger = app_logger.get_logger("scripts.remove_user")
 def remove_user(nbgrader_config: Config, user_id: str) -> None:
     """Remove all data about user.
 
-    :param nbgrader_config: grader configuration.
-    :param user_id: username.
+    Args:
+        nbgrader_config: Grader configuration.
+        user_id: User ID.
     """
     nb = NbGraderAPI(config=nbgrader_config)
     with nb.gradebook as gb:
@@ -24,9 +25,9 @@ def remove_user(nbgrader_config: Config, user_id: str) -> None:
             path = os.path.join(ROOT_PATH, folder, user_id)
             if os.path.exists(path):
                 shutil.rmtree(path)
-    logger.info(f'User with id "{user_id}" was removed.')
+    logger.info(f'User with the id "{user_id}" was removed.')
 
 
 if __name__ == "__main__":
-    user = "20"
-    remove_user(config, user)
+    user_id = "20"
+    remove_user(config, user_id)

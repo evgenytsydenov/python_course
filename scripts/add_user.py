@@ -1,9 +1,9 @@
 import re
 import uuid
 
-from email_validator import EmailNotValidError, validate_email
-from nbgrader.apps import NbGraderAPI
-from traitlets.config import Config
+from email_validator import EmailNotValidError, validate_email  # type: ignore[import]
+from nbgrader.apps import NbGraderAPI  # type: ignore[import]
+from traitlets.config import Config  # type: ignore[import]
 
 from nbgrader_config import config
 from utils import app_logger
@@ -14,24 +14,30 @@ logger = app_logger.get_logger("scripts.add_user")
 def normalize_email(email: str) -> str | None:
     """Normalize email.
 
-    :param email: email to validate.
-    :return: Normalized email or None if email is not valid.
+    Args:
+        email: Email to normalize.
+
+    Returns:
+        Normalized email or None if email is not valid.
     """
     try:
         valid = validate_email(email.strip())
-        return valid.email.lower()
+        return str(valid.email).lower()
     except EmailNotValidError:
         return None
 
 
-def clean_string(text: str) -> str:
-    """Remove all special characters and convert to lower case.
+def clean_string(text: str | None) -> str:
+    """Remove all special characters and convert to the lower case.
 
-    :param text: text to handle.
-    :return: cleaned text.
+    Args:
+        text: Text to handle.
+
+    Returns:
+        Cleaned text.
     """
-    pattern = "[^A-Za-z0-9]+"
-    return re.sub(pattern, "", text).lower()
+    pattern = "[^a-z0-9]+"
+    return "" if text is None else re.sub(pattern, "", text.lower())
 
 
 def add_user(
@@ -41,13 +47,14 @@ def add_user(
     last_name: str | None = None,
     group: str | None = None,
 ) -> None:
-    """Add new user.
+    """Add a new user.
 
-    :param nbgrader_config: grader configuration.
-    :param first_name: user's first name.
-    :param last_name: user's last name.
-    :param email: user's email.
-    :param group: user's group.
+    Args:
+        nbgrader_config: Grader configuration.
+        email: User's email.
+        first_name: User's first name.
+        last_name: User's last name.
+        group: User's group.
     """
     nb = NbGraderAPI(config=nbgrader_config)
     course_id = nbgrader_config.CourseDirectory.course_id
@@ -60,7 +67,7 @@ def add_user(
         if not email_:
             raise ValueError(f'Email "{email}" is incorrect."')
         if email_ in emails:
-            raise ValueError(f'User with email "{email_}" ' f"already exists.")
+            raise ValueError(f'User with email "{email_}" already exists.')
 
         # Create username
         first_name_ = clean_string(first_name)
@@ -76,7 +83,7 @@ def add_user(
             last_name=last_name,
             lms_user_id=group,
         )
-        logger.info(f'User "{username}" was added.')
+        logger.info(f'The user "{username}" was added.')
 
 
 if __name__ == "__main__":

@@ -2,8 +2,8 @@ import datetime
 import os
 
 from dotenv import load_dotenv
-from nbgrader.apps import NbGraderAPI
-from traitlets.config import Config
+from nbgrader.apps import NbGraderAPI  # type: ignore[import]
+from traitlets.config import Config  # type: ignore[import]
 
 from definitions import ROOT_PATH
 from nbgrader_config import config
@@ -18,9 +18,10 @@ def add_lesson(
 ) -> None:
     """Add lesson to the grading system.
 
-    :param nbgrader_config: grader configuration.
-    :param lesson_name: name of the lesson.
-    :param due_date: deadline for the lesson.
+    Args:
+        nbgrader_config: Grader configuration.
+        lesson_name: Name of the lesson.
+        due_date: Deadline for the lesson.
     """
     nb = NbGraderAPI(config=nbgrader_config)
     course_id = nbgrader_config.CourseDirectory.course_id
@@ -30,7 +31,7 @@ def add_lesson(
     with nb.gradebook as gb:
         gb.check_course(course_id)
         gb.add_assignment(name=lesson_name, duedate=due_date, course_id=course_id)
-        logger.info(f'Lesson "{lesson_name}" was added to course "{course_id}"')
+        logger.info(f'The lesson "{lesson_name}" was added to the course "{course_id}"')
 
     path = os.path.join(ROOT_PATH, "source", lesson_name)
     if not os.path.exists(path):
