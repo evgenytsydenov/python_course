@@ -24,9 +24,9 @@ class DatabaseHandler:
         self._meta = MetaData(bind=self._engine)
         self.refresh_metadata()
 
-    # TODO: Add submission id
     def log_submission(
         self,
+        submission_id: str,
         user_id: str,
         lesson_name: str,
         task_grades: list[Task],
@@ -37,6 +37,7 @@ class DatabaseHandler:
         """Log submission information to the database.
 
         Args:
+            submission_id: Submission id.
             user_id: User id.
             lesson_name: Lesson name.
             task_grades: Grades per task.
@@ -51,7 +52,8 @@ class DatabaseHandler:
         with self._engine.connect() as connection:
             log_table = self._meta.tables["submission_logs"]
             ins = log_table.insert().values(
-                user_name=user_id,
+                submission_id=submission_id,
+                user_id=user_id,
                 submitted_notebook=notebook,
                 lesson_name=lesson_name,
                 task_grades=str(task_grades),
@@ -60,8 +62,7 @@ class DatabaseHandler:
             )
             connection.execute(ins)
             logger.debug(
-                f'Submission of the student "{user_id}" '
-                f'for the lesson "{lesson_name}" was saved '
+                f'Submission with the id "{submission_id}" was saved '
                 f'to the "submission_logs" table.'
             )
 
@@ -112,7 +113,8 @@ class DatabaseHandler:
             "submission_logs",
             self._meta,
             Column("timestamp", DateTime, nullable=False),
-            Column("user_name", Text, nullable=False),
+            Column("submission_id", Text, nullable=False),
+            Column("user_id", Text, nullable=False),
             Column("lesson_name", Text, nullable=False),
             Column("task_grades", Text, nullable=False),
             Column("submitted_notebook", LargeBinary(length=1e9), nullable=False),

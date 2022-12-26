@@ -151,7 +151,13 @@ class Grader:
         with open(os.path.join(submitted_path, f"{notebook_}.ipynb"), "rb") as f:
             notebook = f.read()
         self._db.log_submission(
-            user_, lesson_, grades, submission.timestamp, feedback, notebook
+            submission.submission_id,
+            user_,
+            lesson_,
+            grades,
+            submission.timestamp,
+            feedback,
+            notebook,
         )
         logger.info(
             f'The submission with the id "{submission.submission_id}" was graded.'
