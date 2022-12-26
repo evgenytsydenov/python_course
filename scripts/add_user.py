@@ -1,4 +1,3 @@
-import re
 import uuid
 
 from email_validator import EmailNotValidError, validate_email
@@ -27,20 +26,6 @@ def normalize_email(email: str) -> str | None:
         return None
 
 
-def clean_string(text: str | None) -> str:
-    """Remove all special characters and convert to the lower case.
-
-    Args:
-        text: Text to handle.
-
-    Returns:
-        Cleaned text.
-    """
-    pattern = "[^a-z0-9]+"
-    return "" if text is None else re.sub(pattern, "", text.lower())
-
-
-# TODO: Is it necessary add name into the user id?
 def add_user(
     nbgrader_config: Config,
     email: str,
@@ -59,6 +44,8 @@ def add_user(
     """
     nb = NbGraderAPI(config=nbgrader_config)
     course_id = nbgrader_config.CourseDirectory.course_id
+    user_id = uuid.uuid1().hex
+    logger.debug(f'Start adding a new user with the id "{user_id}".')
     with nb.gradebook as gb:
         gb.check_course(course_id)
         logger.debug("Database was checked.")
@@ -67,25 +54,19 @@ def add_user(
         # Check if such email already exists
         email_ = normalize_email(email)
         if not email_:
-            raise ValueError(f'Email "{email}" is incorrect."')
+            raise ValueError(f'Email "{email}" is incorrect.')
         if email_ in emails:
-            raise ValueError(f'User with email "{email_}" already exists.')
-
-        # Create username
-        first_name_ = clean_string(first_name)
-        last_name_ = clean_string(last_name)
-        parts = [n for n in [last_name_, first_name_] if n]
-        username = "_".join([*parts, uuid.uuid1().hex])[:128]
+            raise ValueError(f'User with the email "{email_}" already exists.')
 
         # Add
         gb.add_student(
-            student_id=username,
+            student_id=user_id,
             first_name=first_name,
             email=email_,
             last_name=last_name,
             lms_user_id=group,
         )
-        logger.info(f'The user "{username}" was added.')
+        logger.info(f'The user "{user_id}" with email "{email_}" was added.')
 
 
 if __name__ == "__main__":
