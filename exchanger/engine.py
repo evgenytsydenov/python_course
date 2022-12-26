@@ -218,7 +218,6 @@ class GmailExchanger:
             )
         return submissions
 
-    # TODO: Whether to log message requests?
     @slow_api_calls(min_latency=5)  # type: ignore[misc]
     @repeat_request
     def _get_new_messages(self) -> list[str]:
