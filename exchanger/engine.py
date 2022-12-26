@@ -241,7 +241,7 @@ class GmailExchanger:
         """Send HTML feedback.
 
         Args:
-            feedback: Feedback that contains a email address, subject and html content.
+            feedback: Feedback that contains an email address, subject and html content.
         """
         # Create message
         message = MIMEMultipart()

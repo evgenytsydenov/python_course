@@ -62,9 +62,13 @@ class Grader:
         # Get user information
         user_info = self._db.get_user_info(submission.email)
         if not user_info:
-            logger.info(
+            logger.debug(
                 f"The information about the user with "
                 f'the email "{submission.email}" was not found.'
+            )
+            logger.info(
+                f"The user of the submission "
+                f'"{submission.submission_id}" was not found.'
             )
             grade_result.status = GradeStatus.ERROR_USERNAME_IS_ABSENT
             shutil.rmtree(submission.file_path)
@@ -80,9 +84,13 @@ class Grader:
         # Get lesson information
         lesson_info = self._db.get_lesson_info(submission.lesson_name)
         if not lesson_info:
-            logger.info(
+            logger.debug(
                 f"The information about the lesson with the name "
                 f'"{submission.lesson_name}" was not found.'
+            )
+            logger.info(
+                f"The lesson of the submission "
+                f'"{submission.submission_id}" was not found.'
             )
             grade_result.status = GradeStatus.ERROR_LESSON_IS_ABSENT
             shutil.rmtree(submission.file_path)
@@ -115,7 +123,11 @@ class Grader:
 
         # Check the notebook structure
         if not self._is_notebook_valid(submission.file_path, lesson_, notebook_):
-            logger.info(f'The structure of the notebook "{notebook_}" is corrupted.')
+            logger.debug(f'The structure of the notebook "{notebook_}" is corrupted.')
+            logger.info(
+                f"The notebook in the submission "
+                f'"{submission.submission_id}" is corrupted.'
+            )
             grade_result.status = GradeStatus.ERROR_NOTEBOOK_CORRUPTED
             shutil.rmtree(submission.file_path)
             logger.debug(log_msg_drop)
@@ -305,8 +317,11 @@ class Grader:
         # Read the old timestamp and compare with the new one
         with open(path_timestamp) as file:
             time_file = file.readline().strip()
-            logger.debug("The previous submission was loaded.")
-        time_old = parser.parse(time_file)
+            time_old = parser.parse(time_file)
+            logger.debug(
+                f"The timestamp of the previous "
+                f'submission was loaded as "{time_old}".'
+            )
         return timestamp > time_old
 
     def _get_submission_grades(
@@ -397,7 +412,7 @@ class Grader:
             gb.check_course(course_id)
             logger.debug("Standard nbgrader schema was checked.")
 
-        # Customizationsa
+        # Customizations
         alembic_cfg = alembic.config.Config()
         alembic_cfg.set_main_option("script_location", "alembic")
 
