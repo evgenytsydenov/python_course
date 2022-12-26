@@ -8,7 +8,7 @@ from google.oauth2 import service_account
 from googleapiclient.discovery import Resource, build
 from googleapiclient.http import MediaFileUpload
 
-from settings import PUBLISH_IGNORE
+from settings import PUBLISH_SANITIZE
 from utils.app_logger import get_logger
 
 logger = get_logger(__name__)
@@ -31,7 +31,7 @@ class GDrivePublisher:
         self.cloud_root_name = cloud_root_name
         self._creds = creds
         self._scopes = ["https://www.googleapis.com/auth/drive"]
-        self._ignored_files = PUBLISH_IGNORE
+        self._sanitized_files = PUBLISH_SANITIZE
         self._gd_resource: Resource | None = None
         self._gd_root_folder_id: str | None = None
 
@@ -286,19 +286,18 @@ class GDrivePublisher:
                 result[file]["md5hash"] = self._get_md5_hash(path)
         return result
 
-    # TODO: This should not remove files
     def _sanitize_local_folder(self, path: str) -> None:
         """Clean the local folder from unnecessary files.
 
         Args:
             path: Path of the folder to clean.
         """
-        for pattern in self._ignored_files:
+        for pattern in self._sanitized_files:
             path_ = os.path.join(path, pattern)
             to_drop = glob.glob(path_, recursive=True)
             for file in to_drop:
                 shutil.rmtree(file)
-                logger.debug(f'File "{file}" was sanitized.')
+                logger.debug(f'The file "{file}" was removed.')
 
     def _build_resource(self) -> Resource:
         """Build the Google Drive API resource.

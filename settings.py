@@ -13,8 +13,8 @@ DATE_FORMAT = "%Y-%m-%d %H:%M:%S %Z"
 # Cells with this text will be recognized as tasks
 TASK_NAME_PATTERN = r"^#### TODO:\s+(?P<name>.+)$"
 
-# These files will not published to the cloud folder
-PUBLISH_IGNORE = [".ipynb_checkpoints"]
+# These files will be removed when syncing the local and cloud folders
+PUBLISH_SANITIZE = [".ipynb_checkpoints"]
 
 # Connection string to the database
 DB_URL = str(
