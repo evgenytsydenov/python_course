@@ -8,7 +8,7 @@ from google.oauth2 import service_account
 from googleapiclient.discovery import Resource, build
 from googleapiclient.http import MediaFileUpload
 
-from definitions import PUBLISH_IGNORE
+from settings import PUBLISH_IGNORE
 from utils.app_logger import get_logger
 
 logger = get_logger(__name__)

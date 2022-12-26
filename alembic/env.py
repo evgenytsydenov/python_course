@@ -1,7 +1,7 @@
 from sqlalchemy import engine_from_config, pool
 
 from alembic import context
-from definitions import DB_URL
+from settings import DB_URL
 from utils.app_logger import get_logger
 
 # Logger

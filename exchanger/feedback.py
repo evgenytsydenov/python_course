@@ -1,6 +1,6 @@
 import os
 
-from definitions import DATE_FORMAT, ROOT_PATH
+from settings import DATE_FORMAT
 from utils.app_logger import get_logger
 from utils.data_models import Feedback, GradeResult, GradeStatus, Task
 
@@ -23,7 +23,7 @@ class FeedbackCreator:
         self._teacher_email = teacher_email
         self._course_name = course_name
         self._pics = picture_links
-        self._template_path = os.path.join(ROOT_PATH, "exchanger", "resources")
+        self._template_path = os.path.join("exchanger", "resources")
         self._template = self._load_template("template.html")
         self._styles = self._load_template("styles.css")
         self._error_body = self._load_template("error_body.html")

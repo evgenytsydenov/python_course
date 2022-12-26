@@ -4,7 +4,6 @@ import shutil
 from nbgrader.apps import NbGraderAPI
 from traitlets.config import Config
 
-from definitions import ROOT_PATH
 from nbgrader_config import config
 from utils import app_logger
 
@@ -25,7 +24,7 @@ def remove_user(nbgrader_config: Config, user_id: str) -> None:
             f'Data of the user with the id "{user_id}" was removed from the database.'
         )
         for folder in ["autograded", "feedback", "submitted"]:
-            path = os.path.join(ROOT_PATH, folder, user_id)
+            path = os.path.join("..", folder, user_id)
             if os.path.exists(path):
                 shutil.rmtree(path)
                 logger.debug(

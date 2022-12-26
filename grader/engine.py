@@ -12,8 +12,8 @@ from traitlets.config import Config
 
 import alembic.command
 import alembic.config
-from definitions import DATE_FORMAT, ROOT_PATH, TASK_NAME_PATTERN
 from grader.database import DatabaseHandler
+from settings import DATE_FORMAT, TASK_NAME_PATTERN
 from utils.app_logger import get_logger
 from utils.data_models import GradeResult, GradeStatus, Submission, Task
 
@@ -104,7 +104,7 @@ class Grader:
         logger.debug(f'The notebook for grading was found at "{notebook_path}".')
 
         # Check if the submission is newer than the existing one
-        submitted_path = os.path.join(ROOT_PATH, "submitted", user_, lesson_)
+        submitted_path = os.path.join("submitted", user_, lesson_)
         if not self._is_submission_newer(submitted_path, submission.timestamp):
             logger.info("The submission is not newer than the existing one. Skip it.")
             grade_result.status = GradeStatus.SKIPPED
@@ -200,7 +200,7 @@ class Grader:
                     f'The submission of the user "{user_id}" for the lesson '
                     f'"{lesson_name}" was removed from the database.'
                 )
-            path_ = os.path.join(ROOT_PATH, "submitted", user_id, lesson_name)
+            path_ = os.path.join("submitted", user_id, lesson_name)
             if os.path.exists(path_):
                 shutil.rmtree(path_)
                 logger.debug(f'The submitted directory "{path_}" was cleared.')
@@ -238,7 +238,7 @@ class Grader:
             )
         logger.debug(f"Grader output: {logs}")
         fb_path = os.path.join(
-            ROOT_PATH, "feedback", user_id, lesson_name, f"{notebook_name}.html"
+            "feedback", user_id, lesson_name, f"{notebook_name}.html"
         )
         logger.debug(
             f'Nbgrader feedback of the user "{user_id}" with the lesson '
@@ -397,11 +397,9 @@ class Grader:
             gb.check_course(course_id)
             logger.debug("Standard nbgrader schema was checked.")
 
-        # Customizations
+        # Customizationsa
         alembic_cfg = alembic.config.Config()
-        alembic_cfg.set_main_option(
-            "script_location", os.path.join(ROOT_PATH, "alembic")
-        )
+        alembic_cfg.set_main_option("script_location", "alembic")
 
         # TODO: Check the version of db schema
         alembic.command.upgrade(alembic_cfg, "head")

@@ -8,7 +8,7 @@ from time import struct_time
 
 import pytz
 
-from definitions import DATE_FORMAT, LOG_FORMAT_DEBUG, LOG_FORMAT_INFO, ROOT_PATH
+from settings import DATE_FORMAT, LOG_FORMAT_DEBUG, LOG_FORMAT_INFO
 
 
 class CustomFormatter(logging.Formatter):
@@ -83,7 +83,7 @@ def get_logger(module_name: str, log_file_name: str = "system.log") -> logging.L
     Returns:
         Logger.
     """
-    path_logs = os.path.join(ROOT_PATH, "logs")
+    path_logs = os.path.join("..", "logs")
     if not os.path.exists(path_logs):
         os.mkdir(path_logs)
     logger = logging.getLogger(module_name)

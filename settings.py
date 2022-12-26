@@ -2,15 +2,21 @@ import os
 
 from sqlalchemy.engine import URL
 
-ROOT_PATH = os.path.dirname(os.path.abspath(__file__))
-
-LOG_FORMAT_DEBUG = (
-    "%(asctime)s | %(name)s | %(funcName)s " "| %(levelname)s | %(message)s"
-)
+# Logs formats
+LOG_FORMAT_DEBUG = "%(asctime)s | %(name)s | %(funcName)s | %(levelname)s | %(message)s"
 LOG_FORMAT_INFO = "%(asctime)s | %(levelname)s | %(message)s"
+LOG_PATH = "logs"
+
+# Date format to use across the project
 DATE_FORMAT = "%Y-%m-%d %H:%M:%S %Z"
+
+# Cells with this text will be recognized as tasks
 TASK_NAME_PATTERN = r"^#### TODO:\s+(?P<name>.+)$"
+
+# These files will not published to the cloud folder
 PUBLISH_IGNORE = [".ipynb_checkpoints"]
+
+# Connection string to the database
 DB_URL = str(
     URL(
         drivername=os.environ["DB_DRIVER"],

@@ -7,7 +7,6 @@ from dotenv import load_dotenv
 from nbgrader.apps import NbGraderAPI
 from traitlets.config import Config
 
-from definitions import ROOT_PATH
 from nbgrader_config import config
 from publisher.engine import GDrivePublisher
 from utils import app_logger
@@ -47,7 +46,7 @@ if __name__ == "__main__":
 
     # Generate student version
     if lessons is None:
-        lessons = os.listdir(os.path.join(ROOT_PATH, "source"))
+        lessons = os.listdir(os.path.join("..", "source"))
     elif isinstance(lessons, str):
         lesson_names = [lessons]
     generate_assignments(config, lessons)
@@ -59,7 +58,7 @@ if __name__ == "__main__":
     )
     publisher.connect()
     for lesson in lessons:
-        path = os.path.join(ROOT_PATH, "release", lesson)
+        path = os.path.join("..", "release", lesson)
         publisher.sync(path, "release")
         logger.info(
             f'Local release version of the assignment "{lesson}" '

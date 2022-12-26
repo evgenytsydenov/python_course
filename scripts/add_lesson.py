@@ -5,7 +5,6 @@ from dotenv import load_dotenv
 from nbgrader.apps import NbGraderAPI
 from traitlets.config import Config
 
-from definitions import ROOT_PATH
 from nbgrader_config import config
 from utils import app_logger
 
@@ -34,7 +33,7 @@ def add_lesson(
         gb.add_assignment(name=lesson_name, duedate=due_date, course_id=course_id)
         logger.info(f'The lesson "{lesson_name}" was added to the course "{course_id}"')
 
-    path = os.path.join(ROOT_PATH, "source", lesson_name)
+    path = os.path.join("..", "source", lesson_name)
     if not os.path.exists(path):
         os.makedirs(path)
         logger.info(f'Source folder for the lesson "{lesson_name}" was created.')

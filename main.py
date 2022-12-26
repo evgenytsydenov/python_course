@@ -5,12 +5,12 @@ from datetime import datetime, timezone
 
 from dotenv import load_dotenv
 
-from definitions import DATE_FORMAT, ROOT_PATH
 from exchanger.engine import GmailExchanger
 from exchanger.feedback import FeedbackCreator
 from grader.engine import Grader
 from nbgrader_config import config
 from publisher.engine import GDrivePublisher
+from settings import DATE_FORMAT
 from utils.app_logger import get_logger
 from utils.data_models import GradeStatus
 from utils.smtp_sender import SMTPSender
@@ -25,9 +25,8 @@ def sync_release_folder(gdrive_publisher: GDrivePublisher) -> None:
     Args:
         gdrive_publisher: Publisher instance.
     """
-    release_path = os.path.join(ROOT_PATH, "release")
-    if not os.path.exists(release_path):
-        os.makedirs(release_path)
+    release_path = "release"
+    os.makedirs(release_path, exist_ok=True)
     for lesson in os.listdir(release_path):
         gdrive_publisher.sync(os.path.join(release_path, lesson), "release")
         logger.debug(
@@ -48,7 +47,7 @@ def sync_html_sources(gdrive_publisher: GDrivePublisher) -> dict[str, str]:
     Returns:
         Filenames and their links.
     """
-    pics_path = os.path.join(ROOT_PATH, "exchanger", "resources", "pics")
+    pics_path = os.path.join("exchanger", "resources", "pics")
     links = {}
     for pic in os.listdir(pics_path):
         image_name = os.path.splitext(pic)[0]
@@ -71,7 +70,7 @@ if __name__ == "__main__":
         fetch_label=os.environ["GMAIL_FETCH_LABEL"],
         send_name=os.environ["GMAIL_SEND_NAME"],
         send_email=os.environ["GMAIL_SEND_EMAIL"],
-        path_downloaded=os.path.join(ROOT_PATH, "downloaded"),
+        path_downloaded=os.path.join("downloaded"),
     )
 
     # To grade submissions

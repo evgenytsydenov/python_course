@@ -2,7 +2,6 @@ import os
 
 from dotenv import load_dotenv
 
-from definitions import ROOT_PATH
 from utils.smtp_sender import SMTPSender
 
 load_dotenv()
@@ -10,7 +9,7 @@ load_dotenv()
 if __name__ == "__main__":
     lessons: list[str] = []
     if not lessons:
-        lessons = os.listdir(os.path.join(ROOT_PATH, "release"))
+        lessons = os.listdir(os.path.join("..", "release"))
 
     smtp = SMTPSender(
         login=os.environ["TEST_USER_SMTP_LOGIN"],
@@ -19,7 +18,7 @@ if __name__ == "__main__":
         server_port=os.environ["TEST_USER_SMTP_PORT"],
     )
     for lesson in lessons:
-        file_path = os.path.join(ROOT_PATH, "source", lesson, f"{lesson}.ipynb")
+        file_path = os.path.join("..", "source", lesson, f"{lesson}.ipynb")
         smtp.send(
             destination=os.environ["GMAIL_FETCH_ALIAS"],
             subject=f'{os.environ["GMAIL_FETCH_KEYWORD"]} / {lesson}',

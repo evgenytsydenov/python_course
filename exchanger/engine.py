@@ -20,7 +20,7 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import Resource, build
 from googleapiclient.errors import HttpError
 
-from definitions import DATE_FORMAT, ROOT_PATH
+from settings import DATE_FORMAT
 from utils.app_logger import get_logger
 from utils.data_models import Feedback, Submission
 
@@ -140,7 +140,7 @@ class GmailExchanger:
         self._send_email = send_email
         self._send_name = send_name
         self._path_downloaded = path_downloaded
-        self._path_pickle = os.path.join(ROOT_PATH, "credentials", "gmail.pickle")
+        self._path_pickle = os.path.join("credentials", "gmail.pickle")
         self._scopes = [
             "https://www.googleapis.com/auth/gmail.modify",
             "https://www.googleapis.com/auth/gmail.settings.basic",
