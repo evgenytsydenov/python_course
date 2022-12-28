@@ -8,8 +8,8 @@ from google.oauth2 import service_account
 from googleapiclient.discovery import Resource, build
 from googleapiclient.http import MediaFileUpload
 
+from jpgrader.app_logger import get_logger
 from settings import PUBLISH_SANITIZE
-from utils.app_logger import get_logger
 
 logger = get_logger(__name__)
 

@@ -20,9 +20,9 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import Resource, build
 from googleapiclient.errors import HttpError
 
+from jpgrader.app_logger import get_logger
+from jpgrader.data_models import Feedback, Submission
 from settings import DATE_FORMAT
-from utils.app_logger import get_logger
-from utils.data_models import Feedback, Submission
 
 logger = get_logger(__name__)
 

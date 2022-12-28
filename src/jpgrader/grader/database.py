@@ -5,8 +5,8 @@ from sqlalchemy import Column, DateTime, LargeBinary, MetaData, Table, Text, fun
 from sqlalchemy.engine import create_engine
 from sqlalchemy.sql import select
 
-from utils.app_logger import get_logger
-from utils.data_models import Task
+from jpgrader.app_logger import get_logger
+from jpgrader.data_models import Task
 
 logger = get_logger(__name__)
 

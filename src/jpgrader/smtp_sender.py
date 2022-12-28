@@ -6,7 +6,7 @@ from email.mime.base import MIMEBase
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
-from utils.app_logger import get_logger
+from jpgrader.app_logger import get_logger
 
 logger = get_logger(__name__)
 

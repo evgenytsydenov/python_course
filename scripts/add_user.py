@@ -1,11 +1,11 @@
 import uuid
 
 from email_validator import EmailNotValidError, validate_email
+from jpgrader import app_logger
 from nbgrader.apps import NbGraderAPI
 from traitlets.config import Config
 
 from nbgrader_config import config
-from utils import app_logger
 
 logger = app_logger.get_logger("scripts.add_user")
 

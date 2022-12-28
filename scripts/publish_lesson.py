@@ -4,12 +4,12 @@ import re
 from typing import Iterable
 
 from dotenv import load_dotenv
+from jpgrader import app_logger
+from jpgrader.publisher.engine import GDrivePublisher
 from nbgrader.apps import NbGraderAPI
 from traitlets.config import Config
 
 from nbgrader_config import config
-from publisher.engine import GDrivePublisher
-from utils import app_logger
 
 logger = app_logger.get_logger("scripts.publish_lesson")
 load_dotenv()

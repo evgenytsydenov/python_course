@@ -6,16 +6,16 @@ from collections import Counter
 from datetime import datetime
 from json import JSONDecodeError
 
+import alembic.command
+import alembic.config
 from dateutil import parser
 from nbgrader.apps import NbGraderAPI
 from traitlets.config import Config
 
-import alembic.command
-import alembic.config
-from grader.database import DatabaseHandler
+from jpgrader.app_logger import get_logger
+from jpgrader.data_models import GradeResult, GradeStatus, Submission, Task
+from jpgrader.grader.database import DatabaseHandler
 from settings import DATE_FORMAT, TASK_NAME_PATTERN
-from utils.app_logger import get_logger
-from utils.data_models import GradeResult, GradeStatus, Submission, Task
 
 logger = get_logger(__name__)
 

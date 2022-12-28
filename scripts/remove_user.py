@@ -1,11 +1,11 @@
 import os
 import shutil
 
+from jpgrader import app_logger
 from nbgrader.apps import NbGraderAPI
 from traitlets.config import Config
 
 from nbgrader_config import config
-from utils import app_logger
 
 logger = app_logger.get_logger("scripts.remove_user")
 

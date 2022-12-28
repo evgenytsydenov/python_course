@@ -1,8 +1,8 @@
+from alembic import context
+from jpgrader.app_logger import get_logger
 from sqlalchemy import engine_from_config, pool
 
-from alembic import context
 from settings import DB_URL
-from utils.app_logger import get_logger
 
 # Logger
 logger = get_logger(__name__)

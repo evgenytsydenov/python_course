@@ -2,11 +2,11 @@ import datetime
 import os
 
 from dotenv import load_dotenv
+from jpgrader import app_logger
 from nbgrader.apps import NbGraderAPI
 from traitlets.config import Config
 
 from nbgrader_config import config
-from utils import app_logger
 
 load_dotenv()
 logger = app_logger.get_logger("scripts.add_lesson")

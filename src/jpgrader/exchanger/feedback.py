@@ -1,8 +1,8 @@
-import os
+from importlib.resources import files
 
+from jpgrader.app_logger import get_logger
+from jpgrader.data_models import Feedback, GradeResult, GradeStatus, Task
 from settings import DATE_FORMAT
-from utils.app_logger import get_logger
-from utils.data_models import Feedback, GradeResult, GradeStatus, Task
 
 logger = get_logger(__name__)
 
@@ -23,8 +23,8 @@ class FeedbackCreator:
         self._teacher_email = teacher_email
         self._course_name = course_name
         self._pics = picture_links
-        self._template_path = os.path.join("exchanger", "resources")
-        self._template = self._load_template("template.html")
+        self._resources = "jpgrader.resources.html_templates"
+        self._template = self._load_template("email_template.html")
         self._styles = self._load_template("styles.css")
         self._error_body = self._load_template("error_body.html")
         self._grades_body = self._load_template("grades_body.html")
@@ -319,8 +319,8 @@ class FeedbackCreator:
         Returns:
             Template content.
         """
-        template_path = os.path.join(self._template_path, name)
-        with open(template_path, encoding="utf-8") as file:
+        template_path = files(self._resources).joinpath(name)
+        with template_path.open("r", encoding="utf-8") as file:
             content = file.read()
             logger.debug(f'The feedback template "{template_path}" was loaded.')
             return content

@@ -1,8 +1,7 @@
 import os
 
 from dotenv import load_dotenv
-
-from utils.smtp_sender import SMTPSender
+from jpgrader.smtp_sender import SMTPSender
 
 load_dotenv()
 

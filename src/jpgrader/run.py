@@ -2,18 +2,19 @@ import json
 import os
 import traceback
 from datetime import datetime, timezone
+from importlib.resources import files
 
 from dotenv import load_dotenv
 
-from exchanger.engine import GmailExchanger
-from exchanger.feedback import FeedbackCreator
-from grader.engine import Grader
+from jpgrader.app_logger import get_logger
+from jpgrader.data_models import GradeStatus
+from jpgrader.exchanger.engine import GmailExchanger
+from jpgrader.exchanger.feedback import FeedbackCreator
+from jpgrader.grader.engine import Grader
+from jpgrader.publisher.engine import GDrivePublisher
+from jpgrader.smtp_sender import SMTPSender
 from nbgrader_config import config
-from publisher.engine import GDrivePublisher
 from settings import DATE_FORMAT
-from utils.app_logger import get_logger
-from utils.data_models import GradeStatus
-from utils.smtp_sender import SMTPSender
 
 load_dotenv()
 logger = get_logger(__name__)
@@ -39,7 +40,7 @@ def sync_release_folder(gdrive_publisher: GDrivePublisher) -> None:
 
 
 def sync_html_sources(gdrive_publisher: GDrivePublisher) -> dict[str, str]:
-    """Sync HTML source files with the cloud ones.
+    """Sync pictures for HTML emails with the cloud ones.
 
     Args:
         gdrive_publisher: Publisher instance.
@@ -47,13 +48,29 @@ def sync_html_sources(gdrive_publisher: GDrivePublisher) -> dict[str, str]:
     Returns:
         Filenames and their links.
     """
-    pics_path = os.path.join("exchanger", "resources", "pics")
+    pics_path = files("jpgrader.resources.email_pics")
+    email_pics = [
+        "0_20.png",
+        "21_40.png",
+        "41_60.png",
+        "61_80.png",
+        "81_99.png",
+        "100.png",
+        "check.png",
+        "course_icon.png",
+        "grader_failed.png",
+        "unknown_content.png",
+        "unknown_files.png",
+        "unknown_lesson.png",
+        "unknown_user.png",
+        "xmark.png",
+    ]
     links = {}
-    for pic in os.listdir(pics_path):
-        image_name = os.path.splitext(pic)[0]
-        pic_path = os.path.join(pics_path, pic)
+    for pic in email_pics:
+        pic_name = os.path.splitext(pic)[0]
+        pic_path = str(pics_path.joinpath(pic))
         link = gdrive_publisher.sync(pic_path, "html_sources", "const_thumbnail")
-        links[image_name] = link
+        links[pic_name] = link
         logger.debug(
             f'Local HTML source of the pic "{pic}" was '
             f"synchronized with the cloud ones."
@@ -62,8 +79,8 @@ def sync_html_sources(gdrive_publisher: GDrivePublisher) -> dict[str, str]:
     return links
 
 
-if __name__ == "__main__":
-
+def main() -> None:
+    """Start the grading system."""
     # To fetch submissions and send feedbacks
     exchanger = GmailExchanger(
         creds=json.loads(os.environ["GMAIL_CREDS"]),
@@ -126,20 +143,33 @@ if __name__ == "__main__":
         pass
     except Exception:  # noqa BLE001
         logger.critical("Unhandled exception occurred.", exc_info=True)
-        smtp_sender = SMTPSender(
-            login=os.environ["SERVICE_EMAIL_LOGIN"],
-            password=os.environ["SERVICE_EMAIL_PASSWORD"],
-            server=os.environ["SERVICE_EMAIL_SERVER"],
-            server_port=os.environ["SERVICE_EMAIL_PORT"],
-        )
-        date = datetime.now(timezone.utc).strftime(DATE_FORMAT)
-        subject = (
-            f'The grader of the course "{os.environ["COURSE_NAME"]}" failed at {date}.'
-        )
-        smtp_sender.send(
-            destination=os.environ["TEACHER_EMAIL"],
-            plain_text=f"{traceback.format_exc()}",
-            subject=subject,
-        )
+        send_error_report(traceback_str=traceback.format_exc())
     finally:
         grader.stop()
+
+
+def send_error_report(traceback_str: str) -> None:
+    """Send message about.
+
+    Args:
+        traceback_str: Exception info.
+    """
+    smtp_sender = SMTPSender(
+        login=os.environ["SERVICE_EMAIL_LOGIN"],
+        password=os.environ["SERVICE_EMAIL_PASSWORD"],
+        server=os.environ["SERVICE_EMAIL_SERVER"],
+        server_port=os.environ["SERVICE_EMAIL_PORT"],
+    )
+    date = datetime.now(timezone.utc).strftime(DATE_FORMAT)
+    subject = (
+        f'The grader of the course "{os.environ["COURSE_NAME"]}" failed at {date}.'
+    )
+    smtp_sender.send(
+        destination=os.environ["TEACHER_EMAIL"],
+        plain_text=traceback_str,
+        subject=subject,
+    )
+
+
+if __name__ == "__main__":
+    main()
